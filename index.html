@@ -1,0 +1,2117 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>NumberBlocks Designer</title>
+
+<!-- Google Analytics (GA4) -->
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-XXXXXXXXXX"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+  gtag('config', 'G-XXXXXXXXXX');
+</script>
+
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: 'Segoe UI', 'Comic Sans MS', sans-serif;
+    background: linear-gradient(160deg, #e8f5e9 0%, #c8e6c9 30%, #dcedc8 60%, #f1f8e9 100%);
+    min-height: 100vh;
+    overflow: hidden;
+    user-select: none;
+  }
+
+  header {
+    text-align: center;
+    padding: 10px 20px;
+    background: rgba(255,255,255,0.6);
+    backdrop-filter: blur(10px);
+    border-bottom: 2px solid rgba(0,0,0,0.08);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    z-index: 100;
+    position: relative;
+  }
+
+  header h1 {
+    font-size: 28px;
+    background: linear-gradient(90deg, #ff6b6b, #ffa500, #ffd93d, #6bcb77, #4d96ff, #9b59b6);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    font-weight: 900;
+    letter-spacing: 2px;
+  }
+
+  .instructions {
+    color: rgba(0,0,0,0.55);
+    font-size: 13px;
+  }
+
+  .instructions span {
+    display: inline-block;
+    margin: 0 8px;
+    padding: 2px 8px;
+    background: rgba(0,0,0,0.06);
+    border-radius: 4px;
+    font-size: 12px;
+    color: #3e6b3e;
+  }
+
+  .btn-clear {
+    background: rgba(220,60,60,0.12);
+    color: #c0392b;
+    border: 1px solid rgba(220,60,60,0.25);
+    padding: 6px 16px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 14px;
+    transition: all 0.2s;
+  }
+
+  .btn-clear:hover {
+    background: rgba(220,60,60,0.25);
+    color: #a93226;
+  }
+
+  #playArea {
+    position: relative;
+    width: 100vw;
+    height: calc(100vh - 58px);
+    overflow: hidden;
+    cursor: crosshair;
+    background-image:
+      linear-gradient(45deg, rgba(0,0,0,0.03) 25%, transparent 25%),
+      linear-gradient(-45deg, rgba(0,0,0,0.03) 25%, transparent 25%),
+      linear-gradient(45deg, transparent 75%, rgba(0,0,0,0.03) 75%),
+      linear-gradient(-45deg, transparent 75%, rgba(0,0,0,0.03) 75%);
+    background-size: 40px 40px;
+    background-position: 0 0, 0 20px, 20px -20px, -20px 0;
+  }
+
+  .block {
+    position: absolute;
+    display: flex;
+    flex-direction: column-reverse;
+    cursor: grab;
+    filter: drop-shadow(2px 4px 6px rgba(0,0,0,0.4));
+    transition: filter 0.2s;
+    z-index: 1;
+  }
+
+  .block:hover {
+    filter: drop-shadow(2px 4px 12px rgba(0,0,0,0.6));
+    z-index: 50;
+  }
+
+  .block.dragging {
+    cursor: grabbing;
+    filter: drop-shadow(4px 8px 16px rgba(0,0,0,0.7));
+    z-index: 1000;
+    opacity: 0.9;
+  }
+
+  .block .number-label {
+    position: absolute;
+    top: -28px;
+    left: 50%;
+    transform: translateX(-50%);
+    font-size: 20px;
+    font-weight: 900;
+    color: #fff;
+    text-shadow: 1px 1px 3px rgba(0,0,0,0.5);
+    pointer-events: none;
+    white-space: nowrap;
+  }
+
+  .unit-cube {
+    width: 48px;
+    height: 48px;
+    border-radius: 8px;
+    border: 2px solid rgba(255,255,255,0.35);
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .unit-cube::after {
+    content: '';
+    position: absolute;
+    top: 3px;
+    left: 3px;
+    right: 50%;
+    bottom: 50%;
+    background: rgba(255,255,255,0.25);
+    border-radius: 4px 2px 6px 2px;
+  }
+
+  .fuse-highlight {
+    animation: fuseGlow 0.5s ease-out;
+  }
+
+  @keyframes fuseGlow {
+    0% { transform: scale(1.3); opacity: 0.7; }
+    50% { transform: scale(1.1); }
+    100% { transform: scale(1); opacity: 1; }
+  }
+
+  .fuse-zone {
+    outline: 3px dashed rgba(255,255,100,0.6);
+    outline-offset: 4px;
+    border-radius: 8px;
+  }
+
+  .spawn-anim {
+    animation: spawnPop 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+  }
+
+  @keyframes spawnPop {
+    0% { transform: scale(0); opacity: 0; }
+    100% { transform: scale(1); opacity: 1; }
+  }
+
+  .delete-anim {
+    animation: deletePoof 0.25s ease-in forwards;
+  }
+
+  @keyframes deletePoof {
+    0% { transform: scale(1); opacity: 1; }
+    100% { transform: scale(0.3) rotate(20deg); opacity: 0; }
+  }
+
+  /* Face on blocks */
+  .block-face {
+    position: absolute;
+    pointer-events: none;
+    z-index: 5;
+    transition: opacity 0.15s;
+  }
+
+  .block-face svg {
+    display: block;
+    overflow: visible;
+  }
+
+  /* Wrecking Ball */
+  .btn-wreck-mode {
+    background: rgba(100,60,20,0.15);
+    color: #6d4c1d;
+    border: 1px solid rgba(100,60,20,0.3);
+    padding: 6px 14px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 14px;
+    transition: all 0.2s;
+    margin-right: 6px;
+  }
+  .btn-wreck-mode:hover { background: rgba(100,60,20,0.28); }
+  .btn-wreck-mode.active {
+    background: rgba(180,100,20,0.35);
+    color: #fff;
+    border-color: rgba(180,100,20,0.6);
+    box-shadow: 0 0 8px rgba(180,100,20,0.4);
+  }
+
+  #wreckBtn {
+    display: none;
+    position: absolute;
+    z-index: 200;
+    background: linear-gradient(135deg, #e74c3c, #c0392b);
+    color: #fff;
+    border: 2px solid #a93226;
+    padding: 8px 22px;
+    border-radius: 10px;
+    cursor: pointer;
+    font-size: 16px;
+    font-weight: 800;
+    letter-spacing: 1px;
+    box-shadow: 0 4px 14px rgba(0,0,0,0.3);
+    transition: transform 0.15s;
+  }
+  #wreckBtn:hover { transform: scale(1.08); }
+
+  .wb-pin {
+    position: absolute;
+    width: 14px; height: 14px;
+    background: #555;
+    border: 2px solid #333;
+    border-radius: 50%;
+    z-index: 90;
+    pointer-events: none;
+    transform: translate(-50%, -50%);
+  }
+
+  .wb-chain {
+    position: absolute;
+    z-index: 89;
+    pointer-events: none;
+  }
+
+  .wb-ball {
+    position: absolute;
+    width: 50px; height: 50px;
+    border-radius: 50%;
+    background: radial-gradient(circle at 35% 35%, #888, #333);
+    border: 3px solid #222;
+    z-index: 91;
+    cursor: grab;
+    box-shadow: 2px 4px 10px rgba(0,0,0,0.5);
+    transform: translate(-50%, -50%);
+  }
+  .wb-ball::after {
+    content: '';
+    position: absolute;
+    top: 8px; left: 8px;
+    width: 14px; height: 10px;
+    background: rgba(255,255,255,0.25);
+    border-radius: 50%;
+  }
+  .wb-ball.swinging { cursor: default; }
+
+  /* Debris pieces */
+  .debris {
+    position: absolute;
+    z-index: 80;
+    pointer-events: none;
+  }
+
+  /* Sun — positioned by JS for rise/set arc */
+  .sun {
+    position: absolute;
+    width: 80px;
+    height: 80px;
+    border-radius: 50%;
+    background: radial-gradient(circle at 40% 40%, #fff6a8, #ffd93d 40%, #ffa500 100%);
+    box-shadow:
+      0 0 30px rgba(255,217,61,0.5),
+      0 0 60px rgba(255,165,0,0.25),
+      0 0 100px rgba(255,165,0,0.1);
+    z-index: 0;
+    pointer-events: none;
+    animation: sunPulse 4s ease-in-out infinite;
+    transition: box-shadow 0.5s;
+  }
+
+  .sun::before {
+    content: '';
+    position: absolute;
+    top: -18px; left: -18px;
+    right: -18px; bottom: -18px;
+    border-radius: 50%;
+    background: radial-gradient(circle, rgba(255,217,61,0.15), transparent 70%);
+  }
+
+  /* Sun rays — follows sun position via JS */
+  .sun-rays {
+    position: absolute;
+    width: 80px;
+    height: 80px;
+    z-index: 0;
+    pointer-events: none;
+    animation: sunRaysSpin 30s linear infinite;
+  }
+
+  /* Flying birds */
+  .bird {
+    position: absolute;
+    z-index: 2;
+    pointer-events: none;
+    animation: birdFly var(--fly-duration, 10s) linear forwards;
+  }
+
+  .bird svg {
+    width: 30px;
+    height: 16px;
+  }
+
+  .bird-wing {
+    animation: wingFlap 0.35s ease-in-out infinite alternate;
+    transform-origin: center bottom;
+  }
+
+  @keyframes wingFlap {
+    0% { transform: scaleY(1) rotate(0deg); }
+    100% { transform: scaleY(-0.7) rotate(-5deg); }
+  }
+
+  @keyframes birdFly {
+    0% {
+      transform: translate(0, 0);
+      opacity: 0;
+    }
+    5% { opacity: 1; }
+    90% { opacity: 1; }
+    100% {
+      transform: translate(var(--fly-dx, 110vw), var(--fly-dy, -30px));
+      opacity: 0;
+    }
+  }
+
+  /* Tree shadow */
+  .tree-shadow {
+    position: absolute;
+    bottom: 10px;
+    left: 40px;
+    width: 200px;
+    height: 40px;
+    background: radial-gradient(ellipse at center, rgba(0,0,0,0.18) 0%, transparent 70%);
+    border-radius: 50%;
+    z-index: 0;
+    pointer-events: none;
+    transform-origin: left center;
+    transition: transform 1s ease, opacity 1s ease;
+  }
+
+  /* Block shadow (added via JS) */
+  .block-shadow {
+    position: absolute;
+    border-radius: 6px;
+    background: rgba(0,0,0,0.12);
+    z-index: 0;
+    pointer-events: none;
+    transition: transform 0.3s ease, opacity 0.3s ease;
+    filter: blur(4px);
+  }
+
+  .sun-rays::before {
+    content: '';
+    position: absolute;
+    top: 50%; left: 50%;
+    width: 140px; height: 140px;
+    transform: translate(-50%, -50%);
+    background:
+      conic-gradient(
+        from 0deg,
+        transparent 0deg, rgba(255,217,61,0.12) 5deg, transparent 10deg,
+        transparent 30deg, rgba(255,217,61,0.12) 35deg, transparent 40deg,
+        transparent 60deg, rgba(255,217,61,0.12) 65deg, transparent 70deg,
+        transparent 90deg, rgba(255,217,61,0.12) 95deg, transparent 100deg,
+        transparent 120deg, rgba(255,217,61,0.12) 125deg, transparent 130deg,
+        transparent 150deg, rgba(255,217,61,0.12) 155deg, transparent 160deg,
+        transparent 180deg, rgba(255,217,61,0.12) 185deg, transparent 190deg,
+        transparent 210deg, rgba(255,217,61,0.12) 215deg, transparent 220deg,
+        transparent 240deg, rgba(255,217,61,0.12) 245deg, transparent 250deg,
+        transparent 270deg, rgba(255,217,61,0.12) 275deg, transparent 280deg,
+        transparent 300deg, rgba(255,217,61,0.12) 305deg, transparent 310deg,
+        transparent 330deg, rgba(255,217,61,0.12) 335deg, transparent 340deg
+      );
+    border-radius: 50%;
+  }
+
+  @keyframes sunPulse {
+    0%, 100% { transform: scale(1); }
+    50% { transform: scale(1.04); }
+  }
+
+  @keyframes sunRaysSpin {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+  }
+
+  /* Grass */
+  .grass {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    width: 100%;
+    height: 50px;
+    z-index: 0;
+    pointer-events: none;
+    overflow: hidden;
+  }
+
+  .grass-back {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    width: 100%;
+    height: 40px;
+    background: linear-gradient(to top, #4a8c3f, #6abf5e 60%, transparent);
+    border-radius: 60% 80% 0 0 / 20px 15px 0 0;
+  }
+
+  .grass-blades {
+    position: absolute;
+    bottom: 15px;
+    left: 0;
+    width: 100%;
+    height: 40px;
+  }
+
+  .grass-blade {
+    position: absolute;
+    bottom: 0;
+    width: 6px;
+    background: linear-gradient(to top, #5a9e4a, #7dd668);
+    border-radius: 3px 3px 1px 1px;
+    transform-origin: bottom center;
+  }
+
+  /* Coconut Tree */
+  .coconut-tree {
+    position: absolute;
+    bottom: 28px;
+    left: 40px;
+    z-index: 0;
+    pointer-events: none;
+    width: 240px;
+    height: 480px;
+    transform-origin: bottom center;
+    animation: treeSway 5s ease-in-out infinite;
+  }
+  .coconut-tree svg {
+    width: 100%;
+    height: 100%;
+    overflow: visible;
+  }
+
+  @keyframes treeSway {
+    0%   { transform: rotate(0deg) skewX(0deg) translateX(0); }
+    15%  { transform: rotate(1deg) skewX(0.6deg) translateX(2px); }
+    30%  { transform: rotate(-0.5deg) skewX(-0.3deg) translateX(-1px); }
+    50%  { transform: rotate(0.8deg) skewX(0.5deg) translateX(1.5px); }
+    70%  { transform: rotate(-0.6deg) skewX(-0.4deg) translateX(-1px); }
+    85%  { transform: rotate(0.4deg) skewX(0.3deg) translateX(0.5px); }
+    100% { transform: rotate(0deg) skewX(0deg) translateX(0); }
+  }
+
+  /* Frond sway — each leaf group sways independently */
+  .coconut-tree .frond {
+    transform-origin: 120px 130px;
+  }
+  .coconut-tree .frond:nth-child(odd) {
+    animation: frondSway 3.5s ease-in-out infinite alternate;
+  }
+  .coconut-tree .frond:nth-child(even) {
+    animation: frondSway 4.2s ease-in-out infinite alternate-reverse;
+  }
+
+  @keyframes frondSway {
+    0% { transform: rotate(-2.5deg) translateX(-1px); }
+    50% { transform: rotate(0.5deg) translateX(0.5px); }
+    100% { transform: rotate(2.5deg) translateX(1.5px); }
+  }
+
+  /* Leaf rustle — subtle scale pulse */
+  .coconut-tree .frond g {
+    animation: leafRustle 2s ease-in-out infinite alternate;
+  }
+  .coconut-tree .frond:nth-child(odd) g { animation-delay: -0.5s; animation-duration: 1.8s; }
+  .coconut-tree .frond:nth-child(even) g { animation-delay: -1.2s; animation-duration: 2.3s; }
+
+  @keyframes leafRustle {
+    0% { transform: scale(1); }
+    50% { transform: scale(1.02) translateY(-0.5px); }
+    100% { transform: scale(0.98) translateY(0.5px); }
+  }
+
+  /* Grass blade wind sway */
+  .grass-blade {
+    animation: bladeSway 3s ease-in-out infinite alternate;
+  }
+  .grass-blade:nth-child(3n) { animation-duration: 2.5s; animation-delay: -0.3s; }
+  .grass-blade:nth-child(3n+1) { animation-duration: 3.5s; animation-delay: -1.2s; }
+  .grass-blade:nth-child(3n+2) { animation-duration: 2.8s; animation-delay: -0.7s; }
+
+  @keyframes bladeSway {
+    0% { transform: skewX(var(--skew, 0deg)) rotate(-2deg); }
+    100% { transform: skewX(var(--skew, 0deg)) rotate(2deg); }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>NumberBlocks Designer</h1>
+  <div class="instructions">
+    <span>🖱️ Click to create</span>
+    <span>✋ Drag to move</span>
+    <span>🔗 Drop near to fuse</span>
+    <span>🗑️ Right-click to delete</span>
+  </div>
+  <div style="display:flex;gap:6px;align-items:center">
+    <button class="btn-wreck-mode" id="wreckModeBtn" onclick="toggleWreckMode()">🏗️ Wrecking Ball</button>
+    <button class="btn-clear" onclick="clearAll()">Clear All</button>
+  </div>
+</header>
+
+<div id="playArea">
+  <div class="sun-rays" id="sunRays"></div>
+  <div class="sun" id="sun"></div>
+  <div class="tree-shadow" id="treeShadow"></div>
+  <div class="coconut-tree">
+    <svg viewBox="0 0 240 480" xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <linearGradient id="trunkGrad" x1="0" y1="0" x2="1" y2="0">
+          <stop offset="0%" stop-color="#5c3a1a"/>
+          <stop offset="25%" stop-color="#7a5a30"/>
+          <stop offset="50%" stop-color="#9a7a44"/>
+          <stop offset="75%" stop-color="#7a5a30"/>
+          <stop offset="100%" stop-color="#5c3a1a"/>
+        </linearGradient>
+        <linearGradient id="leafGrad1" x1="0" y1="0" x2="1" y2="0">
+          <stop offset="0%" stop-color="#3d7a2a"/>
+          <stop offset="40%" stop-color="#5aad3a"/>
+          <stop offset="100%" stop-color="#2d6a1e"/>
+        </linearGradient>
+        <linearGradient id="leafGrad2" x1="0" y1="0" x2="1" y2="0">
+          <stop offset="0%" stop-color="#347026"/>
+          <stop offset="50%" stop-color="#4e9e34"/>
+          <stop offset="100%" stop-color="#2a5e1a"/>
+        </linearGradient>
+      </defs>
+
+      <!-- Trunk - curved path, wider at base -->
+      <path d="M115,480 C112,470 108,420 106,370 C103,310 100,260 102,210 C104,170 110,140 118,125
+               L128,125 C132,140 136,170 137,210 C138,260 136,310 134,370 C132,420 130,470 128,480 Z"
+            fill="url(#trunkGrad)" stroke="#4a2e14" stroke-width="0.5"/>
+
+      <!-- Trunk rings/segments -->
+      <g stroke="rgba(0,0,0,0.12)" stroke-width="1" fill="none">
+        <path d="M107,380 Q120,384 133,380"/>
+        <path d="M106,355 Q120,359 134,355"/>
+        <path d="M105,330 Q120,334 134,330"/>
+        <path d="M104,305 Q120,309 135,305"/>
+        <path d="M103,280 Q120,284 136,280"/>
+        <path d="M103,255 Q120,259 136,255"/>
+        <path d="M103,230 Q120,234 136,230"/>
+        <path d="M103,210 Q120,214 137,210"/>
+        <path d="M104,190 Q120,194 136,190"/>
+        <path d="M106,170 Q120,174 135,170"/>
+        <path d="M108,155 Q120,158 133,155"/>
+        <path d="M110,142 Q120,145 131,142"/>
+        <path d="M108,400 Q120,404 133,400"/>
+        <path d="M109,420 Q120,424 132,420"/>
+        <path d="M111,440 Q120,444 131,440"/>
+        <path d="M113,458 Q120,461 130,458"/>
+      </g>
+
+      <!-- Fronds (leaves) - drooping curves with leaflets -->
+      <!-- Right drooping frond -->
+      <g class="frond">
+      <path d="M122,128 C140,115 175,105 210,130" stroke="url(#leafGrad1)" stroke-width="3" fill="none"/>
+      <g fill="url(#leafGrad1)">
+        <path d="M140,118 C148,105 155,100 158,108 C152,108 146,114 140,118Z"/>
+        <path d="M155,114 C163,100 172,96 174,105 C168,106 160,110 155,114Z"/>
+        <path d="M170,112 C178,98 188,95 189,104 C183,106 176,110 170,112Z"/>
+        <path d="M185,116 C193,104 202,102 203,110 C197,112 190,114 185,116Z"/>
+        <path d="M198,122 C204,112 212,112 212,118 C207,119 202,120 198,122Z"/>
+        <!-- Bottom leaflets -->
+        <path d="M145,122 C150,132 156,135 157,128 C153,127 148,125 145,122Z"/>
+        <path d="M160,120 C166,130 174,132 174,125 C170,124 164,122 160,120Z"/>
+        <path d="M175,118 C182,128 190,129 190,122 C186,121 180,120 175,118Z"/>
+        <path d="M190,122 C196,130 203,130 202,124 C198,123 194,122 190,122Z"/>
+      </g>
+      </g>
+
+      <!-- Upper right frond -->
+      <g class="frond">
+      <path d="M122,130 C138,108 168,80 200,70" stroke="url(#leafGrad2)" stroke-width="3" fill="none"/>
+      <g fill="url(#leafGrad2)">
+        <path d="M138,110 C144,95 152,88 154,97 C149,98 143,104 138,110Z"/>
+        <path d="M155,96 C162,80 170,75 172,84 C167,86 160,90 155,96Z"/>
+        <path d="M170,84 C178,68 186,65 187,74 C182,76 175,80 170,84Z"/>
+        <path d="M185,76 C192,64 200,63 200,71 C196,72 190,74 185,76Z"/>
+        <path d="M145,115 C150,125 158,126 157,118 C153,117 148,116 145,115Z"/>
+        <path d="M160,104 C166,114 174,114 173,107 C169,106 164,105 160,104Z"/>
+        <path d="M175,92 C182,100 190,100 189,93 C185,92 180,92 175,92Z"/>
+      </g>
+      </g>
+
+      <!-- Top frond (upward) -->
+      <g class="frond">
+      <path d="M120,128 C118,100 122,60 135,25" stroke="url(#leafGrad1)" stroke-width="3" fill="none"/>
+      <g fill="url(#leafGrad1)">
+        <path d="M120,100 C108,90 105,82 112,82 C114,86 116,92 120,100Z"/>
+        <path d="M120,78 C108,66 106,58 113,58 C115,62 117,70 120,78Z"/>
+        <path d="M122,58 C112,44 112,36 118,37 C119,42 120,50 122,58Z"/>
+        <path d="M126,40 C120,28 122,22 127,24 C127,28 126,34 126,40Z"/>
+        <path d="M122,100 C134,90 138,82 132,82 C130,86 126,92 122,100Z"/>
+        <path d="M124,78 C136,66 138,58 132,59 C130,63 127,70 124,78Z"/>
+        <path d="M127,58 C136,46 138,38 132,40 C131,44 129,50 127,58Z"/>
+        <path d="M130,40 C136,30 136,24 132,26 C131,30 130,35 130,40Z"/>
+      </g>
+      </g>
+
+      <!-- Left drooping frond -->
+      <g class="frond">
+      <path d="M118,128 C100,115 65,105 30,130" stroke="url(#leafGrad1)" stroke-width="3" fill="none"/>
+      <g fill="url(#leafGrad1)">
+        <path d="M100,118 C92,105 85,100 82,108 C88,108 94,114 100,118Z"/>
+        <path d="M85,114 C77,100 68,96 66,105 C72,106 80,110 85,114Z"/>
+        <path d="M70,112 C62,98 52,95 51,104 C57,106 64,110 70,112Z"/>
+        <path d="M55,116 C47,104 38,102 37,110 C43,112 50,114 55,116Z"/>
+        <path d="M42,122 C36,112 28,112 28,118 C33,119 38,120 42,122Z"/>
+        <path d="M95,122 C90,132 84,135 83,128 C87,127 92,125 95,122Z"/>
+        <path d="M80,120 C74,130 66,132 66,125 C70,124 76,122 80,120Z"/>
+        <path d="M65,118 C58,128 50,129 50,122 C54,121 60,120 65,118Z"/>
+        <path d="M50,122 C44,130 37,130 38,124 C42,123 46,122 50,122Z"/>
+      </g>
+      </g>
+
+      <!-- Upper left frond -->
+      <g class="frond">
+      <path d="M118,130 C102,108 72,80 40,70" stroke="url(#leafGrad2)" stroke-width="3" fill="none"/>
+      <g fill="url(#leafGrad2)">
+        <path d="M102,110 C96,95 88,88 86,97 C91,98 97,104 102,110Z"/>
+        <path d="M85,96 C78,80 70,75 68,84 C73,86 80,90 85,96Z"/>
+        <path d="M70,84 C62,68 54,65 53,74 C58,76 65,80 70,84Z"/>
+        <path d="M55,76 C48,64 40,63 40,71 C44,72 50,74 55,76Z"/>
+        <path d="M95,115 C90,125 82,126 83,118 C87,117 92,116 95,115Z"/>
+        <path d="M80,104 C74,114 66,114 67,107 C71,106 76,105 80,104Z"/>
+        <path d="M65,92 C58,100 50,100 51,93 C55,92 60,92 65,92Z"/>
+      </g>
+      </g>
+
+      <!-- Back left frond -->
+      <g class="frond">
+      <path d="M116,132 C90,125 50,130 15,155" stroke="#2d6a1e" stroke-width="2.5" fill="none"/>
+      <g fill="#2d6a1e" opacity="0.7">
+        <path d="M88,126 C82,116 76,114 76,120 C80,121 84,124 88,126Z"/>
+        <path d="M68,128 C60,120 54,118 54,124 C58,125 64,126 68,128Z"/>
+        <path d="M48,134 C40,128 34,128 35,133 C38,134 44,134 48,134Z"/>
+        <path d="M30,142 C24,136 18,138 20,142 C23,143 26,142 30,142Z"/>
+      </g>
+      </g>
+
+      <!-- Back right frond -->
+      <g class="frond">
+      <path d="M124,132 C150,125 190,130 225,155" stroke="#2d6a1e" stroke-width="2.5" fill="none"/>
+      <g fill="#2d6a1e" opacity="0.7">
+        <path d="M152,126 C158,116 164,114 164,120 C160,121 156,124 152,126Z"/>
+        <path d="M172,128 C180,120 186,118 186,124 C182,125 176,126 172,128Z"/>
+        <path d="M192,134 C200,128 206,128 205,133 C202,134 196,134 192,134Z"/>
+        <path d="M210,142 C216,136 222,138 220,142 C217,143 214,142 210,142Z"/>
+      </g>
+      </g>
+
+      <!-- Far right drooping frond -->
+      <g class="frond">
+      <path d="M124,126 C148,108 190,92 235,105" stroke="url(#leafGrad2)" stroke-width="2.5" fill="none"/>
+      <g fill="url(#leafGrad2)">
+        <path d="M152,110 C160,96 168,92 170,100 C164,101 158,106 152,110Z"/>
+        <path d="M172,104 C180,90 190,88 191,96 C185,98 178,102 172,104Z"/>
+        <path d="M195,100 C202,90 210,90 210,97 C205,98 200,99 195,100Z"/>
+        <path d="M215,102 C220,94 228,96 226,102 C222,103 218,103 215,102Z"/>
+        <path d="M158,114 C164,122 170,122 170,116 C166,115 162,114 158,114Z"/>
+        <path d="M178,110 C184,118 192,117 191,111 C187,110 182,110 178,110Z"/>
+        <path d="M200,105 C206,112 214,110 212,105 C208,104 204,104 200,105Z"/>
+      </g>
+      </g>
+
+      <!-- Far left drooping frond -->
+      <g class="frond">
+      <path d="M116,126 C92,108 50,92 5,105" stroke="url(#leafGrad2)" stroke-width="2.5" fill="none"/>
+      <g fill="url(#leafGrad2)">
+        <path d="M88,110 C80,96 72,92 70,100 C76,101 82,106 88,110Z"/>
+        <path d="M68,104 C60,90 50,88 49,96 C55,98 62,102 68,104Z"/>
+        <path d="M45,100 C38,90 30,90 30,97 C35,98 40,99 45,100Z"/>
+        <path d="M25,102 C20,94 12,96 14,102 C18,103 22,103 25,102Z"/>
+        <path d="M82,114 C76,122 70,122 70,116 C74,115 78,114 82,114Z"/>
+        <path d="M62,110 C56,118 48,117 49,111 C53,110 58,110 62,110Z"/>
+        <path d="M40,105 C34,112 26,110 28,105 C32,104 36,104 40,105Z"/>
+      </g>
+      </g>
+
+      <!-- Upper center-right frond -->
+      <g class="frond">
+      <path d="M124,125 C135,98 155,60 180,40" stroke="url(#leafGrad1)" stroke-width="2.5" fill="none"/>
+      <g fill="url(#leafGrad1)">
+        <path d="M136,96 C142,82 150,78 150,86 C146,88 140,92 136,96Z"/>
+        <path d="M150,76 C158,60 166,58 165,66 C161,68 156,72 150,76Z"/>
+        <path d="M162,58 C168,44 175,44 174,52 C170,54 166,56 162,58Z"/>
+        <path d="M138,100 C146,108 152,106 150,100 C146,98 142,98 138,100Z"/>
+        <path d="M155,82 C162,90 168,86 166,81 C162,80 158,80 155,82Z"/>
+      </g>
+      </g>
+
+      <!-- Upper center-left frond -->
+      <g class="frond">
+      <path d="M116,125 C105,98 85,60 60,40" stroke="url(#leafGrad1)" stroke-width="2.5" fill="none"/>
+      <g fill="url(#leafGrad1)">
+        <path d="M104,96 C98,82 90,78 90,86 C94,88 100,92 104,96Z"/>
+        <path d="M90,76 C82,60 74,58 75,66 C79,68 84,72 90,76Z"/>
+        <path d="M78,58 C72,44 65,44 66,52 C70,54 74,56 78,58Z"/>
+        <path d="M102,100 C94,108 88,106 90,100 C94,98 98,98 102,100Z"/>
+        <path d="M85,82 C78,90 72,86 74,81 C78,80 82,80 85,82Z"/>
+      </g>
+      </g>
+
+      <!-- Coconuts -->
+      <ellipse cx="112" cy="132" rx="9" ry="8" fill="#6b3d1a"  stroke="#4a2a10" stroke-width="1"/>
+      <ellipse cx="112" cy="132" rx="5" ry="4" fill="#8a5528" opacity="0.4" cx="110" cy="130"/>
+      <ellipse cx="128" cy="134" rx="8" ry="7.5" fill="#5c3415" stroke="#4a2a10" stroke-width="1"/>
+      <ellipse cx="126" cy="132" rx="4" ry="3.5" fill="#8a5528" opacity="0.4"/>
+      <ellipse cx="120" cy="138" rx="8.5" ry="8" fill="#724020" stroke="#4a2a10" stroke-width="1"/>
+      <ellipse cx="118" cy="136" rx="4.5" ry="4" fill="#9a6538" opacity="0.35"/>
+    </svg>
+  </div>
+  <div class="grass">
+    <div class="grass-back"></div>
+    <div class="grass-blades" id="grassBlades"></div>
+  </div>
+  <div id="birdLayer" style="position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none;z-index:2;overflow:hidden;"></div>
+  <button id="wreckBtn" onclick="releaseWreckingBall()">💥 WRECK!</button>
+</div>
+
+<script>
+const UNIT = 48;
+const FUSE_DISTANCE = 60;
+
+// Generate grass blades
+(function generateGrass() {
+  const container = document.getElementById('grassBlades');
+  const count = Math.ceil(window.innerWidth / 10);
+  for (let i = 0; i < count; i++) {
+    const blade = document.createElement('div');
+    blade.className = 'grass-blade';
+    const h = 18 + Math.random() * 22;
+    const left = i * (window.innerWidth / count) + (Math.random() - 0.5) * 8;
+    const skew = (Math.random() - 0.5) * 25;
+    const hue = 100 + Math.random() * 30;
+    const light = 40 + Math.random() * 20;
+    blade.style.height = h + 'px';
+    blade.style.left = left + 'px';
+    blade.style.transform = `skewX(${skew}deg)`;
+    blade.style.background = `linear-gradient(to top, hsl(${hue},55%,${light}%), hsl(${hue},65%,${light+15}%))`;
+    container.appendChild(blade);
+  }
+})();
+
+// Numberblocks-inspired colors for 1–20+
+const BLOCK_COLORS = {
+  1:  '#e74c3c',   // Red
+  2:  '#e67e22',   // Orange
+  3:  '#f1c40f',   // Yellow
+  4:  '#2ecc71',   // Green
+  5:  '#3498db',   // Blue
+  6:  '#9b59b6',   // Purple
+  7:  '#e84393',   // Pink
+  8:  '#8B4513',   // Brown
+  9:  '#00bcd4',   // Cyan / Teal
+  10: '#ecf0f1',   // White / Silver
+  11: '#c0392b',   // Dark Red
+  12: '#d35400',   // Dark Orange
+  13: '#f39c12',   // Amber
+  14: '#27ae60',   // Dark Green
+  15: '#2980b9',   // Dark Blue
+  16: '#8e44ad',   // Dark Purple
+  17: '#d63384',   // Deep Pink
+  18: '#a0522d',   // Sienna
+  19: '#0097a7',   // Dark Teal
+  20: '#bdc3c7',   // Light Gray
+};
+
+function getBlockColor(n) {
+  if (n <= 20) return BLOCK_COLORS[n];
+  // For numbers > 20, generate a hue-based color
+  const hue = (n * 37) % 360;
+  return `hsl(${hue}, 65%, 50%)`;
+}
+
+// Layout configurations for blocks (how unit cubes are arranged)
+// Returns array of {row, col} for each unit cube
+function getBlockLayout(n) {
+  // For small numbers, use specific fun layouts
+  const layouts = {
+    1: [[0,0]],
+    2: [[0,0],[1,0]],
+    3: [[0,0],[1,0],[2,0]],
+    4: [[0,0],[0,1],[1,0],[1,1]],          // 2x2 square
+    5: [[0,0],[0,1],[1,0],[1,1],[2,0]],     // 2x2 + 1 on top
+    6: [[0,0],[0,1],[1,0],[1,1],[2,0],[2,1]], // 2x3
+    7: [[0,0],[0,1],[1,0],[1,1],[2,0],[2,1],[3,0]],
+    8: [[0,0],[0,1],[1,0],[1,1],[2,0],[2,1],[3,0],[3,1]], // 2x4
+    9: [[0,0],[0,1],[0,2],[1,0],[1,1],[1,2],[2,0],[2,1],[2,2]], // 3x3
+    10: [[0,0],[0,1],[0,2],[1,0],[1,1],[1,2],[2,0],[2,1],[2,2],[3,1]], // 3x3 + 1
+  };
+
+  if (layouts[n]) return layouts[n];
+
+  // For larger numbers, build a roughly rectangular tower
+  const cols = Math.ceil(Math.sqrt(n));
+  const result = [];
+  let count = 0;
+  let row = 0;
+  while (count < n) {
+    for (let col = 0; col < cols && count < n; col++) {
+      result.push([row, col]);
+      count++;
+    }
+    row++;
+  }
+  return result;
+}
+
+function getBlockDimensions(n) {
+  const layout = getBlockLayout(n);
+  let maxRow = 0, maxCol = 0;
+  layout.forEach(([r, c]) => { maxRow = Math.max(maxRow, r); maxCol = Math.max(maxCol, c); });
+  return { rows: maxRow + 1, cols: maxCol + 1 };
+}
+
+const playArea = document.getElementById('playArea');
+let blocks = [];
+let dragState = null;
+let nextId = 1;
+
+// ---- Face Expressions (SVG) ----
+// Each returns an SVG string sized 40x28 for the face area
+const FACE_SVG = {
+  happy: `<svg width="40" height="28" viewBox="0 0 40 28">
+    <!-- eyes -->
+    <ellipse cx="12" cy="8" rx="4" ry="5" fill="#fff"/>
+    <ellipse cx="28" cy="8" rx="4" ry="5" fill="#fff"/>
+    <ellipse cx="13" cy="9" rx="2" ry="2.5" fill="#222"/>
+    <ellipse cx="29" cy="9" rx="2" ry="2.5" fill="#222"/>
+    <!-- smile -->
+    <path d="M10 19 Q20 27 30 19" stroke="#fff" stroke-width="2.2" fill="none" stroke-linecap="round"/>
+  </svg>`,
+
+  angry: `<svg width="40" height="28" viewBox="0 0 40 28">
+    <!-- angry brows -->
+    <line x1="6" y1="2" x2="16" y2="5" stroke="#fff" stroke-width="2.5" stroke-linecap="round"/>
+    <line x1="34" y1="2" x2="24" y2="5" stroke="#fff" stroke-width="2.5" stroke-linecap="round"/>
+    <!-- eyes -->
+    <ellipse cx="12" cy="10" rx="4" ry="4" fill="#fff"/>
+    <ellipse cx="28" cy="10" rx="4" ry="4" fill="#fff"/>
+    <ellipse cx="13" cy="10" rx="2" ry="2" fill="#222"/>
+    <ellipse cx="29" cy="10" rx="2" ry="2" fill="#222"/>
+    <!-- angry mouth -->
+    <path d="M12 22 L20 19 L28 22" stroke="#fff" stroke-width="2.2" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+  </svg>`,
+
+  sad: `<svg width="40" height="28" viewBox="0 0 40 28">
+    <!-- sad eyes (droopy) -->
+    <ellipse cx="12" cy="9" rx="4" ry="5" fill="#fff"/>
+    <ellipse cx="28" cy="9" rx="4" ry="5" fill="#fff"/>
+    <ellipse cx="12" cy="11" rx="2" ry="2.5" fill="#222"/>
+    <ellipse cx="28" cy="11" rx="2" ry="2.5" fill="#222"/>
+    <!-- sad brows -->
+    <line x1="7" y1="4" x2="15" y2="2" stroke="#fff" stroke-width="1.8" stroke-linecap="round"/>
+    <line x1="33" y1="4" x2="25" y2="2" stroke="#fff" stroke-width="1.8" stroke-linecap="round"/>
+    <!-- frown -->
+    <path d="M12 24 Q20 17 28 24" stroke="#fff" stroke-width="2.2" fill="none" stroke-linecap="round"/>
+  </svg>`,
+
+  irritated: `<svg width="40" height="28" viewBox="0 0 40 28">
+    <!-- squint eyes -->
+    <ellipse cx="12" cy="9" rx="5" ry="3" fill="#fff"/>
+    <ellipse cx="28" cy="9" rx="5" ry="3" fill="#fff"/>
+    <ellipse class="pupil-left" cx="12" cy="9" rx="2.5" ry="2" fill="#222"/>
+    <ellipse class="pupil-right" cx="28" cy="9" rx="2.5" ry="2" fill="#222"/>
+    <!-- flat annoyed brows -->
+    <line x1="6" y1="3" x2="17" y2="4" stroke="#fff" stroke-width="2.2" stroke-linecap="round"/>
+    <line x1="34" y1="3" x2="23" y2="4" stroke="#fff" stroke-width="2.2" stroke-linecap="round"/>
+    <!-- wavy annoyed mouth -->
+    <path d="M11 21 Q16 18 20 21 Q24 24 29 21" stroke="#fff" stroke-width="2" fill="none" stroke-linecap="round"/>
+  </svg>`
+};
+
+function setBlockExpression(block, expression) {
+  if (!block || !block.el) return;
+  // Always allow re-render for irritated (pupils update)
+  if (block.expression === expression && expression !== 'irritated') return;
+  block.expression = expression;
+  const faceEl = block.el.querySelector('.block-face');
+  if (faceEl) {
+    faceEl.innerHTML = FACE_SVG[expression] || FACE_SVG.happy;
+  }
+}
+
+// Update irritated block pupils to look toward a target position
+function updateIrritatedEyeTracking(block, targetCenter) {
+  if (!block || !block.el || block.expression !== 'irritated') return;
+  const faceEl = block.el.querySelector('.block-face');
+  if (!faceEl) return;
+
+  const blockCenter = getBlockCenter(block);
+  // Direction from this block to the dragged block
+  const dx = targetCenter.x - blockCenter.x;
+  const dy = targetCenter.y - blockCenter.y;
+  const dist = Math.sqrt(dx * dx + dy * dy) || 1;
+  // Normalize and scale: max pupil offset ~2.5px horizontal, ~1px vertical (squinted eyes are narrow)
+  const maxOffX = 2.5;
+  const maxOffY = 1;
+  const offX = (dx / dist) * maxOffX;
+  const offY = (dy / dist) * maxOffY;
+
+  const leftPupil = faceEl.querySelector('.pupil-left');
+  const rightPupil = faceEl.querySelector('.pupil-right');
+  if (leftPupil) {
+    leftPupil.setAttribute('cx', 12 + offX);
+    leftPupil.setAttribute('cy', 9 + offY);
+  }
+  if (rightPupil) {
+    rightPupil.setAttribute('cx', 28 + offX);
+    rightPupil.setAttribute('cy', 9 + offY);
+  }
+}
+
+// ---- Web Audio API Sound Effects ----
+const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+
+function playBubbleBurst() {
+  const now = audioCtx.currentTime;
+
+  // Layer 1: main bubble pop (short noise burst with bandpass)
+  const bufferSize = audioCtx.sampleRate * 0.15;
+  const noiseBuffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
+  const data = noiseBuffer.getChannelData(0);
+  for (let i = 0; i < bufferSize; i++) data[i] = Math.random() * 2 - 1;
+  const noise = audioCtx.createBufferSource();
+  noise.buffer = noiseBuffer;
+
+  const bandpass = audioCtx.createBiquadFilter();
+  bandpass.type = 'bandpass';
+  bandpass.frequency.setValueAtTime(3000, now);
+  bandpass.frequency.exponentialRampToValueAtTime(300, now + 0.12);
+  bandpass.Q.value = 1.5;
+
+  const noiseGain = audioCtx.createGain();
+  noiseGain.gain.setValueAtTime(0.6, now);
+  noiseGain.gain.exponentialRampToValueAtTime(0.001, now + 0.12);
+
+  noise.connect(bandpass).connect(noiseGain).connect(audioCtx.destination);
+  noise.start(now);
+  noise.stop(now + 0.15);
+
+  // Layer 2: descending "bloop" tone
+  const osc = audioCtx.createOscillator();
+  osc.type = 'sine';
+  osc.frequency.setValueAtTime(600, now);
+  osc.frequency.exponentialRampToValueAtTime(120, now + 0.18);
+
+  const oscGain = audioCtx.createGain();
+  oscGain.gain.setValueAtTime(0.4, now);
+  oscGain.gain.exponentialRampToValueAtTime(0.001, now + 0.2);
+
+  osc.connect(oscGain).connect(audioCtx.destination);
+  osc.start(now);
+  osc.stop(now + 0.2);
+
+  // Layer 3: high sparkle ping
+  const ping = audioCtx.createOscillator();
+  ping.type = 'sine';
+  ping.frequency.setValueAtTime(1800, now + 0.02);
+  ping.frequency.exponentialRampToValueAtTime(2400, now + 0.08);
+
+  const pingGain = audioCtx.createGain();
+  pingGain.gain.setValueAtTime(0.15, now + 0.02);
+  pingGain.gain.exponentialRampToValueAtTime(0.001, now + 0.15);
+
+  ping.connect(pingGain).connect(audioCtx.destination);
+  ping.start(now + 0.02);
+  ping.stop(now + 0.15);
+}
+
+function playSpawnPop() {
+  const now = audioCtx.currentTime;
+  const osc = audioCtx.createOscillator();
+  osc.type = 'sine';
+  osc.frequency.setValueAtTime(400, now);
+  osc.frequency.exponentialRampToValueAtTime(800, now + 0.08);
+
+  const gain = audioCtx.createGain();
+  gain.gain.setValueAtTime(0.25, now);
+  gain.gain.exponentialRampToValueAtTime(0.001, now + 0.1);
+
+  osc.connect(gain).connect(audioCtx.destination);
+  osc.start(now);
+  osc.stop(now + 0.1);
+}
+
+function playDeletePoof() {
+  const now = audioCtx.currentTime;
+
+  const bufferSize = audioCtx.sampleRate * 0.12;
+  const noiseBuffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
+  const data = noiseBuffer.getChannelData(0);
+  for (let i = 0; i < bufferSize; i++) data[i] = Math.random() * 2 - 1;
+  const noise = audioCtx.createBufferSource();
+  noise.buffer = noiseBuffer;
+
+  const hp = audioCtx.createBiquadFilter();
+  hp.type = 'highpass';
+  hp.frequency.value = 2000;
+
+  const gain = audioCtx.createGain();
+  gain.gain.setValueAtTime(0.2, now);
+  gain.gain.exponentialRampToValueAtTime(0.001, now + 0.1);
+
+  noise.connect(hp).connect(gain).connect(audioCtx.destination);
+  noise.start(now);
+  noise.stop(now + 0.12);
+}
+
+function playPuckSound() {
+  const now = audioCtx.currentTime;
+  // Short hollow "puck" — a quick damped tone with a tap
+  const osc = audioCtx.createOscillator();
+  osc.type = 'triangle';
+  osc.frequency.setValueAtTime(520, now);
+  osc.frequency.exponentialRampToValueAtTime(380, now + 0.07);
+  const g = audioCtx.createGain();
+  g.gain.setValueAtTime(0.18, now);
+  g.gain.exponentialRampToValueAtTime(0.001, now + 0.09);
+  osc.connect(g).connect(audioCtx.destination);
+  osc.start(now); osc.stop(now + 0.09);
+
+  // Tiny click layer
+  const click = audioCtx.createOscillator();
+  click.type = 'square';
+  click.frequency.setValueAtTime(1200, now);
+  const cg = audioCtx.createGain();
+  cg.gain.setValueAtTime(0.06, now);
+  cg.gain.exponentialRampToValueAtTime(0.001, now + 0.03);
+  click.connect(cg).connect(audioCtx.destination);
+  click.start(now); click.stop(now + 0.03);
+}
+
+function createBlockElement(id, value, x, y, animate = true) {
+  const el = document.createElement('div');
+  el.className = 'block' + (animate ? ' spawn-anim' : '');
+  el.dataset.id = id;
+  el.dataset.value = value;
+  el.style.left = x + 'px';
+  el.style.top = y + 'px';
+
+  renderBlockContent(el, value);
+
+  // Drag events
+  el.addEventListener('mousedown', onBlockMouseDown);
+  el.addEventListener('contextmenu', onBlockRightClick);
+
+  playArea.appendChild(el);
+  return el;
+}
+
+function renderBlockContent(el, value) {
+  el.innerHTML = '';
+  el.dataset.value = value;
+
+  const color = getBlockColor(value);
+  const layout = getBlockLayout(value);
+  const dims = getBlockDimensions(value);
+
+  // Number label
+  const label = document.createElement('div');
+  label.className = 'number-label';
+  label.textContent = value;
+  label.style.color = value === 10 || value === 20 ? '#333' : '#fff';
+  el.appendChild(label);
+
+  // Top cubes (for face placement)
+  const topCubes = layout.filter(([r]) => r === dims.rows - 1);
+
+  // Render unit cubes
+  layout.forEach(([row, col], idx) => {
+    const cube = document.createElement('div');
+    cube.className = 'unit-cube';
+    cube.style.position = 'absolute';
+    cube.style.left = (col * UNIT) + 'px';
+    cube.style.bottom = (row * UNIT) + 'px';
+    cube.style.backgroundColor = color;
+
+    // Slightly vary shade for depth
+    const shade = 1 - (row * 0.03);
+    cube.style.filter = `brightness(${shade})`;
+
+    el.appendChild(cube);
+  });
+
+  // Add face to the top-center cube
+  if (topCubes.length > 0) {
+    const eyeCube = topCubes[Math.floor(topCubes.length / 2)];
+    const face = document.createElement('div');
+    face.className = 'block-face';
+    face.style.left = (eyeCube[1] * UNIT + UNIT / 2 - 20) + 'px';
+    face.style.bottom = (eyeCube[0] * UNIT + UNIT - 28) + 'px';
+    face.style.position = 'absolute';
+    face.innerHTML = FACE_SVG.happy;
+    el.appendChild(face);
+  }
+
+  // Set element size for collision detection
+  el.style.width = (dims.cols * UNIT) + 'px';
+  el.style.height = (dims.rows * UNIT) + 'px';
+}
+
+function addBlock(value, x, y, animate = true) {
+  const id = nextId++;
+  const dims = getBlockDimensions(value);
+  // Center the block on click position
+  const bx = x - (dims.cols * UNIT) / 2;
+  const by = y - (dims.rows * UNIT) / 2;
+
+  const el = createBlockElement(id, value, bx, by, animate);
+  const block = { id, value, el, expression: 'happy' };
+  blocks.push(block);
+  if (animate) playSpawnPop();
+  return block;
+}
+
+function removeBlock(id, animate = true) {
+  const idx = blocks.findIndex(b => b.id === id);
+  if (idx === -1) return;
+
+  const block = blocks[idx];
+  if (animate) {
+    // Show sad face before removal
+    setBlockExpression(block, 'sad');
+    playDeletePoof();
+    setTimeout(() => {
+      block.el.classList.add('delete-anim');
+      setTimeout(() => block.el.remove(), 250);
+    }, 150);
+  } else {
+    block.el.remove();
+  }
+  blocks.splice(idx, 1);
+}
+
+function getBlockCenter(block) {
+  const rect = block.el.getBoundingClientRect();
+  const areaRect = playArea.getBoundingClientRect();
+  return {
+    x: rect.left - areaRect.left + rect.width / 2,
+    y: rect.top - areaRect.top + rect.height / 2
+  };
+}
+
+function getDistance(a, b) {
+  return Math.sqrt((a.x - b.x) ** 2 + (a.y - b.y) ** 2);
+}
+
+function findFuseTarget(draggedBlock) {
+  let closest = null;
+  let closestDist = Infinity;
+
+  for (const block of blocks) {
+    if (block.id === draggedBlock.id) continue;
+
+    const c1 = getBlockCenter(draggedBlock);
+    const c2 = getBlockCenter(block);
+    const dist = getDistance(c1, c2);
+
+    // Scale fuse distance based on block sizes
+    const fuseDist = FUSE_DISTANCE + (draggedBlock.value + block.value) * 5;
+
+    if (dist < fuseDist && dist < closestDist) {
+      closest = block;
+      closestDist = dist;
+    }
+  }
+
+  return closest;
+}
+
+// Event handlers
+function onBlockMouseDown(e) {
+  if (e.button !== 0) return; // Only left click
+  e.preventDefault();
+  e.stopPropagation();
+
+  const el = e.currentTarget;
+  const id = parseInt(el.dataset.id);
+  const block = blocks.find(b => b.id === id);
+  if (!block) return;
+
+  const rect = el.getBoundingClientRect();
+  const areaRect = playArea.getBoundingClientRect();
+
+  dragState = {
+    block,
+    offsetX: e.clientX - rect.left,
+    offsetY: e.clientY - rect.top,
+    startX: rect.left - areaRect.left,
+    startY: rect.top - areaRect.top,
+    fuseTarget: null,
+    lastX: e.clientX,
+    lastY: e.clientY,
+    lastTime: performance.now(),
+    velocity: 0
+  };
+
+  el.classList.add('dragging');
+  document.addEventListener('mousemove', onDragMove);
+  document.addEventListener('mouseup', onDragEnd);
+}
+
+// Proximity zone: blocks within this range show irritated face
+const IRRITATE_DISTANCE = 150;
+
+function updateProximityExpressions(draggedBlock) {
+  const dragCenter = getBlockCenter(draggedBlock);
+  for (const block of blocks) {
+    if (block.id === draggedBlock.id) continue;
+    const c2 = getBlockCenter(block);
+    const dist = getDistance(dragCenter, c2);
+    const fuseDist = FUSE_DISTANCE + (draggedBlock.value + block.value) * 5;
+    const irritateDist = fuseDist + IRRITATE_DISTANCE;
+
+    if (dist < irritateDist) {
+      setBlockExpression(block, 'irritated');
+      updateIrritatedEyeTracking(block, dragCenter);
+    } else {
+      setBlockExpression(block, 'happy');
+    }
+  }
+}
+
+function resetAllExpressions() {
+  for (const block of blocks) {
+    setBlockExpression(block, 'happy');
+  }
+}
+
+// Show a translucent preview of the merged value on the target block
+function showFusePreview(targetBlock, draggedBlock) {
+  const mergedValue = targetBlock.value + draggedBlock.value;
+  // Save original content if not already saved
+  if (!targetBlock._origHTML) {
+    targetBlock._origHTML = targetBlock.el.innerHTML;
+    targetBlock._origWidth = targetBlock.el.style.width;
+    targetBlock._origHeight = targetBlock.el.style.height;
+  }
+  // Re-render with merged value, then make translucent
+  renderBlockContent(targetBlock.el, mergedValue);
+  targetBlock.el.style.opacity = '0.5';
+  targetBlock.el.style.transition = 'opacity 0.15s';
+}
+
+// Revert a block from its fuse preview back to its original state
+function revertFusePreview(targetBlock) {
+  if (!targetBlock || !targetBlock._origHTML) return;
+  targetBlock.el.innerHTML = targetBlock._origHTML;
+  targetBlock.el.style.width = targetBlock._origWidth;
+  targetBlock.el.style.height = targetBlock._origHeight;
+  targetBlock.el.style.opacity = '1';
+  delete targetBlock._origHTML;
+  delete targetBlock._origWidth;
+  delete targetBlock._origHeight;
+}
+
+function onDragMove(e) {
+  if (!dragState) return;
+
+  const areaRect = playArea.getBoundingClientRect();
+  let newX = e.clientX - areaRect.left - dragState.offsetX;
+  let newY = e.clientY - areaRect.top - dragState.offsetY;
+
+  // Keep within bounds
+  const el = dragState.block.el;
+  const maxX = playArea.clientWidth - el.offsetWidth;
+  const maxY = playArea.clientHeight - el.offsetHeight;
+  newX = Math.max(0, Math.min(newX, maxX));
+  newY = Math.max(0, Math.min(newY, maxY));
+
+  el.style.left = newX + 'px';
+  el.style.top = newY + 'px';
+
+  // --- Velocity tracking for angry expression ---
+  const now = performance.now();
+  const dt = now - dragState.lastTime;
+  if (dt > 0) {
+    const dx = e.clientX - dragState.lastX;
+    const dy = e.clientY - dragState.lastY;
+    const speed = Math.sqrt(dx * dx + dy * dy) / dt; // px/ms
+    // Smooth velocity with exponential moving average
+    dragState.velocity = dragState.velocity * 0.6 + speed * 0.4;
+  }
+  dragState.lastX = e.clientX;
+  dragState.lastY = e.clientY;
+  dragState.lastTime = now;
+
+  // Angry if moving very fast (> 1.5 px/ms ≈ fast flick)
+  if (dragState.velocity > 1.5) {
+    setBlockExpression(dragState.block, 'angry');
+  } else {
+    setBlockExpression(dragState.block, 'happy');
+  }
+
+  // --- Proximity: irritated on nearby blocks ---
+  updateProximityExpressions(dragState.block);
+
+  // Check for fuse target
+  const target = findFuseTarget(dragState.block);
+
+  // Handle fuse target change
+  const prevTarget = dragState.fuseTarget;
+  if (prevTarget && prevTarget !== target) {
+    // Dragged away from previous target -> revert preview
+    prevTarget.el.classList.remove('fuse-zone');
+    revertFusePreview(prevTarget);
+  }
+
+  dragState.fuseTarget = target;
+  if (target) {
+    target.el.classList.add('fuse-zone');
+    if (prevTarget !== target) {
+      // Entered a new fuse zone -> play puck sound and show preview
+      playPuckSound();
+      showFusePreview(target, dragState.block);
+    }
+  }
+}
+
+function onDragEnd(e) {
+  if (!dragState) return;
+
+  document.removeEventListener('mousemove', onDragMove);
+  document.removeEventListener('mouseup', onDragEnd);
+
+  dragState.block.el.classList.remove('dragging');
+  setBlockExpression(dragState.block, 'happy');
+  resetAllExpressions();
+
+  if (dragState.fuseTarget) {
+    dragState.fuseTarget.el.classList.remove('fuse-zone');
+    revertFusePreview(dragState.fuseTarget);
+    fuseBlocks(dragState.block, dragState.fuseTarget);
+  }
+
+  dragState = null;
+}
+
+function fuseBlocks(blockA, blockB) {
+  const newValue = blockA.value + blockB.value;
+  const centerA = getBlockCenter(blockA);
+  const centerB = getBlockCenter(blockB);
+  const midX = (centerA.x + centerB.x) / 2;
+  const midY = (centerA.y + centerB.y) / 2;
+
+  // Remove both blocks without animation
+  removeBlock(blockA.id, false);
+  removeBlock(blockB.id, false);
+
+  // Play bubble burst sound on fuse
+  playBubbleBurst();
+
+  // Create new fused block
+  const newBlock = addBlock(newValue, midX, midY, false);
+  newBlock.el.classList.add('fuse-highlight');
+  setTimeout(() => newBlock.el.classList.remove('fuse-highlight'), 500);
+
+  // Play a fun sound-like visual flash
+  showFuseFlash(midX, midY);
+}
+
+function showFuseFlash(x, y) {
+  const flash = document.createElement('div');
+  flash.style.cssText = `
+    position: absolute;
+    left: ${x - 30}px;
+    top: ${y - 30}px;
+    width: 60px;
+    height: 60px;
+    border-radius: 50%;
+    background: radial-gradient(circle, rgba(255,255,100,0.8), transparent);
+    pointer-events: none;
+    animation: fuseGlow 0.4s ease-out forwards;
+    z-index: 999;
+  `;
+  playArea.appendChild(flash);
+  setTimeout(() => flash.remove(), 400);
+}
+
+function onBlockRightClick(e) {
+  e.preventDefault();
+  e.stopPropagation();
+
+  const el = e.currentTarget;
+  const id = parseInt(el.dataset.id);
+  removeBlock(id, true);
+}
+
+// ===================== WRECKING BALL SYSTEM =====================
+let wreckMode = false;   // placing mode
+let wreckState = null;   // { pinX, pinY, ballX, ballY, pinEl, chainEl, ballEl, placed, draggingBall }
+const WB_RADIUS = 25;    // ball radius
+const CHAIN_SEGMENTS = 6;
+
+function toggleWreckMode() {
+  wreckMode = !wreckMode;
+  document.getElementById('wreckModeBtn').classList.toggle('active', wreckMode);
+  if (!wreckMode) {
+    clearWreckingBall();
+  }
+}
+
+function clearWreckingBall() {
+  if (wreckState) {
+    if (wreckState.pinEl) wreckState.pinEl.remove();
+    if (wreckState.chainEl) wreckState.chainEl.remove();
+    if (wreckState.ballEl) wreckState.ballEl.remove();
+    wreckState = null;
+  }
+  document.getElementById('wreckBtn').style.display = 'none';
+}
+
+function placePin(x, y) {
+  clearWreckingBall();
+
+  const pinEl = document.createElement('div');
+  pinEl.className = 'wb-pin';
+  pinEl.style.left = x + 'px';
+  pinEl.style.top = y + 'px';
+  playArea.appendChild(pinEl);
+
+  const chainEl = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+  chainEl.setAttribute('class', 'wb-chain');
+  chainEl.style.left = '0'; chainEl.style.top = '0';
+  chainEl.style.width = '100%'; chainEl.style.height = '100%';
+  chainEl.style.position = 'absolute';
+  playArea.appendChild(chainEl);
+
+  const ballX = x;
+  const ballY = y + 120;
+  const ballEl = document.createElement('div');
+  ballEl.className = 'wb-ball';
+  ballEl.style.left = ballX + 'px';
+  ballEl.style.top = ballY + 'px';
+  playArea.appendChild(ballEl);
+
+  wreckState = { pinX: x, pinY: y, ballX, ballY, pinEl, chainEl, ballEl, placed: true, draggingBall: false, swinging: false };
+  drawChain();
+
+  // Show wreck button near pin
+  const wb = document.getElementById('wreckBtn');
+  wb.style.display = 'block';
+  wb.style.left = (x + 20) + 'px';
+  wb.style.top = Math.max(5, y - 30) + 'px';
+
+  // Ball drag
+  ballEl.addEventListener('mousedown', onBallMouseDown);
+}
+
+function drawChain() {
+  if (!wreckState) return;
+  const { pinX, pinY, ballX, ballY, chainEl } = wreckState;
+  chainEl.innerHTML = '';
+  // Draw dashed chain line
+  const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+  line.setAttribute('x1', pinX); line.setAttribute('y1', pinY);
+  line.setAttribute('x2', ballX); line.setAttribute('y2', ballY);
+  line.setAttribute('stroke', '#555');
+  line.setAttribute('stroke-width', '3');
+  line.setAttribute('stroke-dasharray', '6,4');
+  line.setAttribute('stroke-linecap', 'round');
+  chainEl.appendChild(line);
+
+  // Small chain links as circles
+  const dx = ballX - pinX, dy = ballY - pinY;
+  for (let i = 1; i < CHAIN_SEGMENTS; i++) {
+    const t = i / CHAIN_SEGMENTS;
+    const cx = pinX + dx * t, cy = pinY + dy * t;
+    const c = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+    c.setAttribute('cx', cx); c.setAttribute('cy', cy); c.setAttribute('r', '3');
+    c.setAttribute('fill', '#666'); c.setAttribute('stroke', '#444'); c.setAttribute('stroke-width', '1');
+    chainEl.appendChild(c);
+  }
+}
+
+function onBallMouseDown(e) {
+  if (e.button !== 0 || !wreckState || !wreckState.placed) return;
+  if (wreckState.swinging) return; // Can't drag while swinging
+  e.preventDefault(); e.stopPropagation();
+  wreckState.draggingBall = true;
+  wreckState.ballEl.style.cursor = 'grabbing';
+  document.addEventListener('mousemove', onBallDragMove);
+  document.addEventListener('mouseup', onBallDragEnd);
+}
+
+function onBallDragMove(e) {
+  if (!wreckState || !wreckState.draggingBall) return;
+  const areaRect = playArea.getBoundingClientRect();
+  let bx = e.clientX - areaRect.left;
+  let by = e.clientY - areaRect.top;
+  // Constrain to chain length (max 250px from pin)
+  const dx = bx - wreckState.pinX, dy = by - wreckState.pinY;
+  const dist = Math.sqrt(dx*dx + dy*dy);
+  const maxLen = 250;
+  if (dist > maxLen) {
+    bx = wreckState.pinX + (dx/dist)*maxLen;
+    by = wreckState.pinY + (dy/dist)*maxLen;
+  }
+  wreckState.ballX = bx;
+  wreckState.ballY = by;
+  wreckState.ballEl.style.left = bx + 'px';
+  wreckState.ballEl.style.top = by + 'px';
+  drawChain();
+}
+
+function onBallDragEnd(e) {
+  if (!wreckState) return;
+  wreckState.draggingBall = false;
+  wreckState.ballEl.style.cursor = 'grab';
+  document.removeEventListener('mousemove', onBallDragMove);
+  document.removeEventListener('mouseup', onBallDragEnd);
+}
+
+function releaseWreckingBall() {
+  if (!wreckState || wreckState.swinging) return;
+  document.getElementById('wreckBtn').style.display = 'none';
+  wreckState.ballEl.classList.add('swinging');
+  wreckState.swinging = true;
+
+  const { pinX, pinY, ballX, ballY } = wreckState;
+
+  // ---- Pendulum physics using angle representation ----
+  // Calculate initial angle and chain length from current ball position
+  const dx = ballX - pinX;
+  const dy = ballY - pinY;
+  const chainLen = Math.sqrt(dx * dx + dy * dy) || 120;
+
+  // Angle measured from straight down (positive = right)
+  // atan2 with down as 0: angle = atan2(dx, dy)
+  let angle = Math.atan2(dx, dy);
+  let angularVel = 0;
+
+  const GRAVITY = 0.0015;       // gravitational acceleration (tuned for visual)
+  const DAMPING = 0.997;        // angular velocity damping (friction)
+  const MIN_ANGULAR_VEL = 0.0003; // threshold to stop
+
+  playSmashSound();
+
+  let frameCount = 0;
+
+  function animateSwing() {
+    if (!wreckState) return;
+
+    // Pendulum equation: angular_accel = -(g/L) * sin(angle)
+    const angularAccel = -GRAVITY * Math.sin(angle);
+    angularVel += angularAccel;
+    angularVel *= DAMPING;
+    angle += angularVel;
+
+    // Convert angle back to cartesian (angle from straight down)
+    let curX = pinX + Math.sin(angle) * chainLen;
+    let curY = pinY + Math.cos(angle) * chainLen;
+
+    // Compute linear velocity for collision impact
+    const linearSpeed = Math.abs(angularVel) * chainLen;
+    const vx = Math.cos(angle) * angularVel * chainLen;
+    const vy = -Math.sin(angle) * angularVel * chainLen;
+
+    // Keep in bounds (bounce off edges)
+    const w = playArea.clientWidth, h = playArea.clientHeight;
+    let bounced = false;
+    if (curX < WB_RADIUS) { curX = WB_RADIUS; angularVel = Math.abs(angularVel) * 0.5; bounced = true; }
+    if (curX > w - WB_RADIUS) { curX = w - WB_RADIUS; angularVel = -Math.abs(angularVel) * 0.5; bounced = true; }
+    if (curY < WB_RADIUS) { curY = WB_RADIUS; angularVel *= -0.5; bounced = true; }
+    if (curY > h - WB_RADIUS) { curY = h - WB_RADIUS; angularVel *= -0.5; bounced = true; }
+
+    if (bounced) {
+      // Recalculate angle from corrected position
+      angle = Math.atan2(curX - pinX, curY - pinY);
+    }
+
+    wreckState.ballX = curX;
+    wreckState.ballY = curY;
+    wreckState.ballEl.style.left = curX + 'px';
+    wreckState.ballEl.style.top = curY + 'px';
+    drawChain();
+
+    // Check collision with number blocks
+    checkWreckCollisions(curX, curY, vx, vy);
+
+    frameCount++;
+
+    // Stop when angular velocity is small enough and ball is near bottom
+    if (frameCount > 60 && Math.abs(angularVel) < MIN_ANGULAR_VEL && Math.abs(angle) < 0.02) {
+      // Pendulum has come to rest
+      wreckState.swinging = false;
+      wreckState.ballEl.classList.remove('swinging');
+      wreckState.ballEl.style.cursor = 'grab';
+      // Show wreck button again so user can re-position and wreck again
+      const wb = document.getElementById('wreckBtn');
+      wb.style.display = 'block';
+      wb.style.left = (pinX + 20) + 'px';
+      wb.style.top = Math.max(5, pinY - 30) + 'px';
+      return;
+    }
+
+    requestAnimationFrame(animateSwing);
+  }
+
+  requestAnimationFrame(animateSwing);
+}
+
+function checkWreckCollisions(bx, by, bvx, bvy) {
+  const hitRadius = WB_RADIUS + 10;
+  const toRemove = [];
+
+  for (const block of blocks) {
+    const center = getBlockCenter(block);
+    const dx = bx - center.x, dy = by - center.y;
+    const dims = getBlockDimensions(block.value);
+    const blockRadius = Math.max(dims.cols, dims.rows) * UNIT / 2;
+    const dist = Math.sqrt(dx*dx + dy*dy);
+
+    if (dist < hitRadius + blockRadius) {
+      toRemove.push(block);
+    }
+  }
+
+  for (const block of toRemove) {
+    wreckBlock(block, bvx, bvy);
+  }
+}
+
+function wreckBlock(block, impactVx, impactVy) {
+  const center = getBlockCenter(block);
+  const value = block.value;
+
+  // Remove block instantly
+  const idx = blocks.findIndex(b => b.id === block.id);
+  if (idx === -1) return;
+  blocks.splice(idx, 1);
+  block.el.remove();
+
+  playBlockSmashSound();
+
+  // Break into smaller pieces
+  // A block of value N breaks into individual 1-blocks (debris)
+  const layout = getBlockLayout(value);
+  const dims = getBlockDimensions(value);
+  // Calculate top-left of the block in play area coords
+  const topLeftX = center.x - (dims.cols * UNIT) / 2;
+  const topLeftY = center.y - (dims.rows * UNIT) / 2;
+
+  const impactSpeed = Math.sqrt(impactVx*impactVx + impactVy*impactVy) || 5;
+  const color = getBlockColor(value);
+
+  for (const [row, col] of layout) {
+    const cubeX = topLeftX + col * UNIT + UNIT/2;
+    const cubeY = topLeftY + (dims.rows - 1 - row) * UNIT + UNIT/2;
+
+    // Each debris gets velocity from impact plus random scatter
+    const scatter = 3;
+    const dvx = impactVx * 0.6 + (Math.random() - 0.5) * scatter * impactSpeed;
+    const dvy = impactVy * 0.6 + (Math.random() - 0.5) * scatter * impactSpeed;
+
+    spawnDebris(cubeX, cubeY, dvx, dvy, color);
+  }
+
+  // Show smash flash
+  showSmashFlash(center.x, center.y);
+}
+
+// ---- DEBRIS PHYSICS ----
+let debrisList = [];
+let debrisAnimating = false;
+const DEBRIS_FRICTION = 0.985;
+const DEBRIS_BOUNCE = 0.55;
+const DEBRIS_GRAVITY = 0.15;
+const DEBRIS_SIZE = 20;
+
+function spawnDebris(x, y, vx, vy, color) {
+  const el = document.createElement('div');
+  el.className = 'debris';
+  el.style.width = DEBRIS_SIZE + 'px';
+  el.style.height = DEBRIS_SIZE + 'px';
+  el.style.borderRadius = '4px';
+  el.style.backgroundColor = color;
+  el.style.border = '1.5px solid rgba(255,255,255,0.3)';
+  el.style.left = x + 'px';
+  el.style.top = y + 'px';
+  el.style.boxShadow = '1px 2px 4px rgba(0,0,0,0.3)';
+  el.style.transform = 'translate(-50%,-50%)';
+  playArea.appendChild(el);
+
+  const spin = (Math.random() - 0.5) * 15; // degrees per frame
+  debrisList.push({ el, x, y, vx, vy, spin, angle: 0, life: 300 });
+
+  if (!debrisAnimating) {
+    debrisAnimating = true;
+    requestAnimationFrame(animateDebris);
+  }
+}
+
+function animateDebris() {
+  const w = playArea.clientWidth;
+  const h = playArea.clientHeight;
+  const half = DEBRIS_SIZE / 2;
+
+  for (let i = debrisList.length - 1; i >= 0; i--) {
+    const d = debrisList[i];
+    d.vy += DEBRIS_GRAVITY;
+    d.vx *= DEBRIS_FRICTION;
+    d.vy *= DEBRIS_FRICTION;
+    d.x += d.vx;
+    d.y += d.vy;
+    d.angle += d.spin;
+    d.spin *= 0.98;
+    d.life--;
+
+    // Bounce off walls
+    if (d.x - half < 0) { d.x = half; d.vx = Math.abs(d.vx) * DEBRIS_BOUNCE; playBounceSound(); }
+    if (d.x + half > w) { d.x = w - half; d.vx = -Math.abs(d.vx) * DEBRIS_BOUNCE; playBounceSound(); }
+    if (d.y - half < 0) { d.y = half; d.vy = Math.abs(d.vy) * DEBRIS_BOUNCE; playBounceSound(); }
+    if (d.y + half > h) { d.y = h - half; d.vy = -Math.abs(d.vy) * DEBRIS_BOUNCE; playBounceSound(); }
+
+    // Check collision with other number blocks -> smash them too!
+    const speed = Math.sqrt(d.vx*d.vx + d.vy*d.vy);
+    if (speed > 2) {
+      for (let j = blocks.length - 1; j >= 0; j--) {
+        const block = blocks[j];
+        const bc = getBlockCenter(block);
+        const dims = getBlockDimensions(block.value);
+        const br = Math.max(dims.cols, dims.rows) * UNIT / 2;
+        const dist = Math.sqrt((d.x - bc.x)**2 + (d.y - bc.y)**2);
+        if (dist < br + half) {
+          wreckBlock(block, d.vx * 0.5, d.vy * 0.5);
+          d.vx *= 0.3;
+          d.vy *= 0.3;
+          break;
+        }
+      }
+    }
+
+    d.el.style.left = d.x + 'px';
+    d.el.style.top = d.y + 'px';
+    d.el.style.transform = `translate(-50%,-50%) rotate(${d.angle}deg)`;
+
+    // Fade out near end of life
+    if (d.life < 60) {
+      d.el.style.opacity = d.life / 60;
+    }
+
+    // Remove if stopped or expired
+    if (d.life <= 0 || (speed < 0.2 && d.life < 200)) {
+      d.el.remove();
+      debrisList.splice(i, 1);
+    }
+  }
+
+  if (debrisList.length > 0) {
+    requestAnimationFrame(animateDebris);
+  } else {
+    debrisAnimating = false;
+  }
+}
+
+function showSmashFlash(x, y) {
+  const flash = document.createElement('div');
+  flash.style.cssText = `
+    position: absolute;
+    left: ${x - 40}px;
+    top: ${y - 40}px;
+    width: 80px;
+    height: 80px;
+    border-radius: 50%;
+    background: radial-gradient(circle, rgba(255,160,50,0.9), rgba(255,80,0,0.4), transparent);
+    pointer-events: none;
+    animation: fuseGlow 0.35s ease-out forwards;
+    z-index: 999;
+  `;
+  playArea.appendChild(flash);
+  setTimeout(() => flash.remove(), 350);
+}
+
+// ---- WRECKING BALL SOUNDS ----
+function playSmashSound() {
+  const now = audioCtx.currentTime;
+  // Deep impact thud
+  const osc = audioCtx.createOscillator();
+  osc.type = 'sine';
+  osc.frequency.setValueAtTime(80, now);
+  osc.frequency.exponentialRampToValueAtTime(30, now + 0.3);
+  const g = audioCtx.createGain();
+  g.gain.setValueAtTime(0.5, now);
+  g.gain.exponentialRampToValueAtTime(0.001, now + 0.35);
+  osc.connect(g).connect(audioCtx.destination);
+  osc.start(now); osc.stop(now + 0.35);
+
+  // Metallic clang
+  const clang = audioCtx.createOscillator();
+  clang.type = 'triangle';
+  clang.frequency.setValueAtTime(800, now);
+  clang.frequency.exponentialRampToValueAtTime(200, now + 0.15);
+  const cg = audioCtx.createGain();
+  cg.gain.setValueAtTime(0.3, now);
+  cg.gain.exponentialRampToValueAtTime(0.001, now + 0.2);
+  clang.connect(cg).connect(audioCtx.destination);
+  clang.start(now); clang.stop(now + 0.2);
+
+  // Noise burst for impact texture
+  const bufSize = audioCtx.sampleRate * 0.15;
+  const buf = audioCtx.createBuffer(1, bufSize, audioCtx.sampleRate);
+  const d = buf.getChannelData(0);
+  for (let i = 0; i < bufSize; i++) d[i] = Math.random() * 2 - 1;
+  const ns = audioCtx.createBufferSource();
+  ns.buffer = buf;
+  const lp = audioCtx.createBiquadFilter();
+  lp.type = 'lowpass'; lp.frequency.value = 1500;
+  const ng = audioCtx.createGain();
+  ng.gain.setValueAtTime(0.25, now);
+  ng.gain.exponentialRampToValueAtTime(0.001, now + 0.12);
+  ns.connect(lp).connect(ng).connect(audioCtx.destination);
+  ns.start(now); ns.stop(now + 0.15);
+}
+
+function playBlockSmashSound() {
+  const now = audioCtx.currentTime;
+  // Crunch / crack
+  const bufSize = audioCtx.sampleRate * 0.1;
+  const buf = audioCtx.createBuffer(1, bufSize, audioCtx.sampleRate);
+  const d = buf.getChannelData(0);
+  for (let i = 0; i < bufSize; i++) d[i] = Math.random() * 2 - 1;
+  const ns = audioCtx.createBufferSource();
+  ns.buffer = buf;
+  const bp = audioCtx.createBiquadFilter();
+  bp.type = 'bandpass'; bp.frequency.value = 2500; bp.Q.value = 2;
+  const g = audioCtx.createGain();
+  g.gain.setValueAtTime(0.35, now);
+  g.gain.exponentialRampToValueAtTime(0.001, now + 0.08);
+  ns.connect(bp).connect(g).connect(audioCtx.destination);
+  ns.start(now); ns.stop(now + 0.1);
+
+  // Descending crumble tone
+  const osc = audioCtx.createOscillator();
+  osc.type = 'sawtooth';
+  osc.frequency.setValueAtTime(300, now);
+  osc.frequency.exponentialRampToValueAtTime(60, now + 0.15);
+  const og = audioCtx.createGain();
+  og.gain.setValueAtTime(0.12, now);
+  og.gain.exponentialRampToValueAtTime(0.001, now + 0.15);
+  osc.connect(og).connect(audioCtx.destination);
+  osc.start(now); osc.stop(now + 0.15);
+}
+
+let lastBounceTime = 0;
+function playBounceSound() {
+  const now = audioCtx.currentTime;
+  // Throttle bounce sounds (max every 80ms)
+  if (now - lastBounceTime < 0.08) return;
+  lastBounceTime = now;
+
+  const osc = audioCtx.createOscillator();
+  osc.type = 'sine';
+  osc.frequency.setValueAtTime(200 + Math.random() * 300, now);
+  osc.frequency.exponentialRampToValueAtTime(100, now + 0.06);
+  const g = audioCtx.createGain();
+  g.gain.setValueAtTime(0.08, now);
+  g.gain.exponentialRampToValueAtTime(0.001, now + 0.06);
+  osc.connect(g).connect(audioCtx.destination);
+  osc.start(now); osc.stop(now + 0.06);
+}
+
+// Click on empty space to create new block or place pin
+playArea.addEventListener('mousedown', (e) => {
+  if (e.button !== 0) return;
+  if (e.target !== playArea && !e.target.matches('#playArea *:not(.block):not(.block *)')) {
+    // Clicked on a block or its child, let block handler deal with it
+    return;
+  }
+  // Ignore clicks on wreck button, ball, etc.
+  if (e.target.id === 'wreckBtn' || e.target.classList.contains('wb-ball')) return;
+  if (e.target !== playArea) return;
+
+  const areaRect = playArea.getBoundingClientRect();
+  const x = e.clientX - areaRect.left;
+  const y = e.clientY - areaRect.top;
+
+  if (wreckMode) {
+    placePin(x, y);
+  } else {
+    addBlock(1, x, y);
+  }
+});
+
+// Prevent context menu on play area
+playArea.addEventListener('contextmenu', (e) => {
+  e.preventDefault();
+});
+
+function clearAll() {
+  blocks.forEach(b => {
+    b.el.classList.add('delete-anim');
+    setTimeout(() => b.el.remove(), 250);
+  });
+  blocks = [];
+  clearWreckingBall();
+  // Clear debris
+  debrisList.forEach(d => d.el.remove());
+  debrisList = [];
+}
+
+// Add some starter blocks for fun
+setTimeout(() => {
+  const cx = window.innerWidth / 2;
+  const cy = window.innerHeight / 2;
+  addBlock(1, cx - 150, cy);
+  addBlock(2, cx - 50, cy);
+  addBlock(3, cx + 70, cy);
+  addBlock(4, cx + 200, cy);
+  addBlock(5, cx + 340, cy);
+}, 100);
+
+// ===================== SUN RISE / SET ARC =====================
+const sunEl = document.getElementById('sun');
+const sunRaysEl = document.getElementById('sunRays');
+const treeShadowEl = document.getElementById('treeShadow');
+
+// Sun cycle: 60 seconds for a full rise→set loop
+const SUN_CYCLE_DURATION = 60000; // ms
+let sunStartTime = performance.now();
+
+function updateSun(now) {
+  const elapsed = (now - sunStartTime) % SUN_CYCLE_DURATION;
+  const t = elapsed / SUN_CYCLE_DURATION; // 0→1
+
+  const vw = window.innerWidth;
+  const vh = window.innerHeight - 58; // play area height
+
+  // Arc from left to right: x goes from -60 to vw+60
+  const sunX = -60 + (vw + 120) * t;
+  // y follows an inverted parabola: highest at t=0.5
+  const arcHeight = vh * 0.75; // how high the sun rises
+  const sunY = vh - 40 - arcHeight * 4 * t * (1 - t); // parabolic arc
+
+  // Position sun and rays
+  sunEl.style.left = sunX + 'px';
+  sunEl.style.top = sunY + 'px';
+  sunRaysEl.style.left = sunX + 'px';
+  sunRaysEl.style.top = sunY + 'px';
+
+  // Fade near horizon (edges)
+  const horizonFade = Math.min(1, 4 * t * (1 - t) * 2);
+  sunEl.style.opacity = Math.max(0.15, horizonFade);
+  sunRaysEl.style.opacity = Math.max(0, horizonFade - 0.3);
+
+  // Color shift: orange at sunrise/sunset, bright yellow at noon
+  const warmth = 1 - 4 * Math.pow(t - 0.5, 2); // 0 at edges, 1 at center
+  const hue = 35 + warmth * 15; // 35 (orange) → 50 (yellow)
+  const sat = 90 + warmth * 10;
+  const light = 55 + warmth * 15;
+  sunEl.style.background = `radial-gradient(circle at 40% 40%, hsl(${hue+10},100%,90%), hsl(${hue},${sat}%,${light}%) 40%, hsl(${hue-10},90%,45%) 100%)`;
+
+  // Sky tint based on sun position (subtle)
+  const skyWarmth = warmth * 0.08;
+  document.body.style.background = `linear-gradient(160deg, 
+    hsl(120,${35 + skyWarmth*100}%,${90 - warmth*5}%) 0%, 
+    hsl(120,${30 + skyWarmth*80}%,${82 - warmth*4}%) 30%, 
+    hsl(80,${40 + skyWarmth*100}%,${88 - warmth*3}%) 60%, 
+    hsl(95,${35 + skyWarmth*60}%,${94 - warmth*2}%) 100%)`;
+
+  // ---- SHADOWS ----
+  // Shadow direction: based on sun X relative to center
+  const sunCenterX = sunX + 40; // center of sun
+  const sunCenterY = sunY + 40;
+  const screenCenterX = vw / 2;
+
+  // Shadow offset: opposite of sun direction, scaled by sun height
+  const sunAltitude = Math.max(0.1, 1 - (sunY / vh)); // 1 = high, 0 = horizon
+  const shadowLengthFactor = 1.5 / Math.max(0.3, sunAltitude); // longer shadows at low sun
+  const shadowDirX = (screenCenterX - sunCenterX) / vw; // normalized -0.5 to 0.5
+
+  // Tree shadow
+  if (treeShadowEl) {
+    const treeShX = shadowDirX * 120 * shadowLengthFactor;
+    const treeScale = 0.8 + (1 - sunAltitude) * 1.5;
+    const treeOp = Math.max(0.05, horizonFade * 0.25);
+    treeShadowEl.style.transform = `scaleX(${treeScale}) translateX(${treeShX}px)`;
+    treeShadowEl.style.opacity = treeOp;
+  }
+
+  // Block shadows
+  updateBlockShadows(shadowDirX, shadowLengthFactor, sunAltitude, horizonFade);
+
+  requestAnimationFrame(updateSun);
+}
+
+// Block shadow management
+function updateBlockShadows(dirX, lengthFactor, altitude, opacity) {
+  for (const block of blocks) {
+    let shadowEl = block.el.querySelector('.block-shadow');
+    if (!shadowEl) {
+      shadowEl = document.createElement('div');
+      shadowEl.className = 'block-shadow';
+      // Insert as first child so it's behind the block content
+      block.el.insertBefore(shadowEl, block.el.firstChild);
+    }
+
+    const w = block.el.offsetWidth;
+    const h = block.el.offsetHeight;
+    const offX = dirX * 30 * lengthFactor;
+    const offY = 8 * lengthFactor;
+    const scaleX = 1 + Math.abs(dirX) * 0.3;
+
+    shadowEl.style.width = w + 'px';
+    shadowEl.style.height = (h * 0.3) + 'px';
+    shadowEl.style.left = offX + 'px';
+    shadowEl.style.bottom = -(h * 0.2) + 'px';
+    shadowEl.style.transform = `scaleX(${scaleX}) skewX(${-dirX * 20}deg)`;
+    shadowEl.style.opacity = Math.max(0.03, opacity * 0.18);
+  }
+}
+
+requestAnimationFrame(updateSun);
+
+// ===================== FLYING BIRDS =====================
+const birdLayer = document.getElementById('birdLayer');
+
+function createBirdSVG(mirror) {
+  const flip = mirror ? 'transform="scale(-1,1)" transform-origin="15 8"' : '';
+  return `<svg viewBox="0 0 30 16" ${flip}>
+    <g class="bird-wing">
+      <path d="M15 10 Q10 4 2 2" stroke="#333" stroke-width="1.8" fill="none" stroke-linecap="round"/>
+    </g>
+    <g class="bird-wing" style="animation-delay: -0.15s;">
+      <path d="M15 10 Q20 4 28 2" stroke="#333" stroke-width="1.8" fill="none" stroke-linecap="round"/>
+    </g>
+    <circle cx="15" cy="11" r="2.5" fill="#444"/>
+  </svg>`;
+}
+
+function spawnBird() {
+  const bird = document.createElement('div');
+  bird.className = 'bird';
+
+  // Random direction: left-to-right or right-to-left
+  const goRight = Math.random() > 0.4;
+  const startX = goRight ? -40 : window.innerWidth + 40;
+  const startY = 30 + Math.random() * (window.innerHeight * 0.35);
+  const duration = 6 + Math.random() * 8;
+  const dy = (Math.random() - 0.5) * 80;
+  const dx = goRight ? window.innerWidth + 80 : -(window.innerWidth + 80);
+
+  bird.style.left = startX + 'px';
+  bird.style.top = startY + 'px';
+  bird.style.setProperty('--fly-duration', duration + 's');
+  bird.style.setProperty('--fly-dx', dx + 'px');
+  bird.style.setProperty('--fly-dy', dy + 'px');
+
+  bird.innerHTML = createBirdSVG(!goRight);
+
+  birdLayer.appendChild(bird);
+
+  // Remove after animation ends
+  setTimeout(() => bird.remove(), duration * 1000 + 500);
+}
+
+// Spawn birds periodically (sometimes in small flocks)
+function scheduleBirds() {
+  const delay = 3000 + Math.random() * 6000;
+  setTimeout(() => {
+    const flockSize = Math.random() < 0.3 ? (2 + Math.floor(Math.random() * 3)) : 1;
+    for (let i = 0; i < flockSize; i++) {
+      setTimeout(() => spawnBird(), i * 400);
+    }
+    scheduleBirds();
+  }, delay);
+}
+
+// Spawn the first bird soon
+setTimeout(spawnBird, 1500);
+scheduleBirds();
+</script>
+</body>
+</html>
