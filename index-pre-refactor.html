@@ -1,0 +1,2325 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>NumberBlocks Designer</title>
+
+<!-- Google Analytics (GA4) -->
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-XXXXXXXXXX"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+  gtag('config', 'G-XXXXXXXXXX');
+</script>
+
+<!-- Google Ads (gtag.js) -->
+<script async src="https://www.googletagmanager.com/gtag/js?id=AW-17975743100"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+  gtag('config', 'AW-17975743100');
+</script>
+
+<!-- PixiJS v7 (WebGL) -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pixi.js/7.3.3/pixi.min.js"></script>
+
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: 'Segoe UI', 'Comic Sans MS', sans-serif;
+    background: #333;
+    min-height: 100vh;
+    overflow: hidden;
+    user-select: none;
+  }
+
+  header {
+    text-align: center;
+    padding: 10px 20px;
+    background: rgba(255,255,255,0.6);
+    backdrop-filter: blur(10px);
+    border-bottom: 2px solid rgba(0,0,0,0.08);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    z-index: 100;
+    position: relative;
+  }
+
+  header h1 {
+    font-size: 28px;
+    background: linear-gradient(90deg, #ff6b6b, #ffa500, #ffd93d, #6bcb77, #4d96ff, #9b59b6);
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+    font-weight: 900;
+    letter-spacing: 2px;
+  }
+
+  .instructions {
+    color: rgba(0,0,0,0.55);
+    font-size: 13px;
+  }
+
+  .instructions span {
+    display: inline-block;
+    margin: 0 8px;
+    padding: 2px 8px;
+    background: rgba(0,0,0,0.06);
+    border-radius: 4px;
+    font-size: 12px;
+    color: #3e6b3e;
+  }
+
+  .btn-clear {
+    background: rgba(220,60,60,0.12);
+    color: #c0392b;
+    border: 1px solid rgba(220,60,60,0.25);
+    padding: 6px 16px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 14px;
+    transition: all 0.2s;
+  }
+  .btn-clear:hover {
+    background: rgba(220,60,60,0.25);
+    color: #a93226;
+  }
+
+  .btn-wreck-mode {
+    background: rgba(100,60,20,0.15);
+    color: #6d4c1d;
+    border: 1px solid rgba(100,60,20,0.3);
+    padding: 6px 14px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 14px;
+    transition: all 0.2s;
+    margin-right: 6px;
+  }
+  .btn-wreck-mode:hover { background: rgba(100,60,20,0.28); }
+  .btn-wreck-mode.active {
+    background: rgba(180,100,20,0.35);
+    color: #fff;
+    border-color: rgba(180,100,20,0.6);
+    box-shadow: 0 0 8px rgba(180,100,20,0.4);
+  }
+
+  #gameContainer {
+    position: relative;
+    width: 100vw;
+    height: calc(100vh - 58px);
+    overflow: hidden;
+    cursor: crosshair;
+  }
+
+  #gameContainer canvas {
+    display: block;
+  }
+
+  #wreckBtn {
+    display: none;
+    position: absolute;
+    z-index: 200;
+    background: linear-gradient(135deg, #e74c3c, #c0392b);
+    color: #fff;
+    border: 2px solid #a93226;
+    padding: 8px 22px;
+    border-radius: 10px;
+    cursor: pointer;
+    font-size: 16px;
+    font-weight: 800;
+    letter-spacing: 1px;
+    box-shadow: 0 4px 14px rgba(0,0,0,0.3);
+    transition: transform 0.15s;
+  }
+  #wreckBtn:hover { transform: scale(1.08); }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>NumberBlocks Designer</h1>
+  <div class="instructions">
+    <span>🖱️ Click to create</span>
+    <span>✋ Drag to move</span>
+    <span>🔗 Drop near to fuse</span>
+    <span>🗑️ Right-click to delete</span>
+  </div>
+  <div style="display:flex;gap:6px;align-items:center">
+    <button class="btn-wreck-mode" id="wreckModeBtn" onclick="toggleWreckMode()">🏗️ Wrecking Ball</button>
+    <button class="btn-clear" onclick="clearAll()">Clear All</button>
+  </div>
+</header>
+
+<div id="gameContainer">
+  <button id="wreckBtn" onclick="releaseWreckingBall()">💥 WRECK!</button>
+</div>
+
+<script>
+// ======================== DESIGN NOTES & ARCHITECTURE ========================
+//
+// ** Project: NumberBlocks Designer **
+// A playful block-stacking & fusing game rendered entirely with PixiJS (WebGL).
+//
+// --- Rendering ---
+// - PixiJS v7 is used for all rendering (GPU-accelerated via WebGL).
+// - A single PIXI.Application manages the canvas and the game loop (app.ticker).
+// - All visual elements are PIXI.Graphics or PIXI.Sprite objects in a layered
+//   Container hierarchy for correct z-ordering:
+//     bgLayer > nightSkyLayer > treeShadowLayer > treeLayer > grassLayer >
+//     blockShadowLayer > blockLayer > effectLayer > wreckLayer > birdLayer
+//
+// --- Day/Night Cycle (120s full loop) ---
+// The cycle is driven by a single normalized parameter `t` (0→1):
+//   t=0.00–0.05 : Dawn   — horizon glow fades out, stars/moon disappear, sun rises
+//   t=0.05–0.45 : Day    — sun arcs across the sky, birds fly, green scenery
+//   t=0.45–0.55 : Dusk   — orange horizon glow, sun sets, stars/moon fade in
+//   t=0.55–0.95 : Night  — dark overlay, constellations visible, moon arcs, shooting stars
+//   t=0.95–1.00 : Dawn   — repeats
+// The `getDayPhase(t)` helper returns { phase, nightAmount, duskDawnAmount }.
+//
+// --- Moon & Stars ---
+// - Moon follows the same parabolic arc as the sun but during the night half.
+// - At dawn the moon simply fades out (no reverse animation).
+// - 7 real constellations are plotted (Orion, Ursa Major, Cassiopeia, Leo,
+//   Scorpius, Cygnus, Gemini) with connecting lines and twinkling.
+// - 80 additional ambient stars fill the sky.
+// - Shooting stars spawn at random intervals during nighttime.
+//
+// --- Block System ---
+// - Blocks are PIXI Containers holding Graphics cubes, a face, and a label.
+// - Faces are drawn procedurally (happy, angry, sad, irritated with eye tracking).
+// - Drag-and-drop uses PIXI's pointer events; fuse detection is distance-based.
+// - Spawn, fuse-highlight, and delete effects are tick-based animations (no CSS).
+//
+// --- Wrecking Ball ---
+// - Pin + chain + ball rendered with PIXI.Graphics.
+// - Pendulum physics: angular acceleration = -(g/L)*sin(θ), damped.
+// - Debris are individual Graphics particles with gravity, friction, and bounce.
+//
+// --- Sound ---
+// - All sound effects use the Web Audio API (oscillators + noise buffers).
+// - No external audio files are loaded.
+//
+// --- Environment ---
+// - Coconut tree: SVG rendered to canvas → PIXI.Texture → Sprite. Swaying via rotation.
+// - Grass: individual Graphics blades swaying via skew.x in the ticker.
+// - Birds: Graphics V-shapes with position interpolation; only spawn during day.
+// - Tree & grass darken at night via tint interpolation.
+// - Block shadows adjust direction/length based on sun position; hidden at night.
+//
+// --- Performance Principles ---
+// 1. Single RAF loop (PIXI ticker) — no scattered requestAnimationFrame calls.
+// 2. All rendering is GPU-batched through WebGL.
+// 3. Graphics objects are reused (clear + redraw) rather than recreated each frame
+//    where possible (sun, moon, chain, debris trails).
+// 4. Destroyed objects are properly removed from containers and .destroy()'d.
+// 5. Constellation stars & lines are drawn once; only alpha/scale change per frame.
+//
+// ========================================================================
+
+// ======================== CONSTANTS ========================
+const UNIT = 48;
+const FUSE_DISTANCE = 60;
+const IRRITATE_DISTANCE = 150;
+const HEADER_HEIGHT = 58;
+
+// ======================== PIXI APP ========================
+const gameContainer = document.getElementById('gameContainer');
+const appWidth = window.innerWidth;
+const appHeight = window.innerHeight - HEADER_HEIGHT;
+
+const app = new PIXI.Application({
+  width: appWidth,
+  height: appHeight,
+  antialias: true,
+  resolution: window.devicePixelRatio || 1,
+  autoDensity: true,
+  backgroundColor: 0xc8e6c9,
+});
+gameContainer.insertBefore(app.view, gameContainer.firstChild);
+
+// ======================== LAYERS ========================
+const bgLayer = new PIXI.Container();
+const nightSkyLayer = new PIXI.Container();  // stars, moon, shooting stars
+const treeShadowLayer = new PIXI.Container();
+const treeLayer = new PIXI.Container();
+const grassLayer = new PIXI.Container();
+const blockShadowLayer = new PIXI.Container();
+const blockLayer = new PIXI.Container();
+const effectLayer = new PIXI.Container();
+const wreckLayer = new PIXI.Container();
+const birdLayer = new PIXI.Container();
+
+app.stage.addChild(bgLayer, nightSkyLayer, treeShadowLayer, treeLayer, grassLayer, blockShadowLayer, blockLayer, effectLayer, wreckLayer, birdLayer);
+
+// Sort blockLayer by zIndex
+blockLayer.sortableChildren = true;
+
+// ======================== COLORS & LAYOUTS ========================
+const BLOCK_COLORS = {
+  1:  0xe74c3c, 2:  0xe67e22, 3:  0xf1c40f, 4:  0x2ecc71, 5:  0x3498db,
+  6:  0x9b59b6, 7:  0xe84393, 8:  0x8B4513, 9:  0x00bcd4, 10: 0xecf0f1,
+  11: 0xc0392b, 12: 0xd35400, 13: 0xf39c12, 14: 0x27ae60, 15: 0x2980b9,
+  16: 0x8e44ad, 17: 0xd63384, 18: 0xa0522d, 19: 0x0097a7, 20: 0xbdc3c7,
+};
+
+function getBlockColor(n) {
+  if (n <= 20) return BLOCK_COLORS[n];
+  const hue = (n * 37) % 360;
+  return PIXI.utils.rgb2hex(hslToRgb(hue / 360, 0.65, 0.5));
+}
+
+function hslToRgb(h, s, l) {
+  let r, g, b;
+  if (s === 0) { r = g = b = l; }
+  else {
+    const hue2rgb = (p, q, t) => {
+      if (t < 0) t += 1; if (t > 1) t -= 1;
+      if (t < 1/6) return p + (q - p) * 6 * t;
+      if (t < 1/2) return q;
+      if (t < 2/3) return p + (q - p) * (2/3 - t) * 6;
+      return p;
+    };
+    const q = l < 0.5 ? l * (1 + s) : l + s - l * s;
+    const p = 2 * l - q;
+    r = hue2rgb(p, q, h + 1/3);
+    g = hue2rgb(p, q, h);
+    b = hue2rgb(p, q, h - 1/3);
+  }
+  return [r, g, b];
+}
+
+function getBlockLayout(n) {
+  const layouts = {
+    1: [[0,0]],
+    2: [[0,0],[1,0]],
+    3: [[0,0],[1,0],[2,0]],
+    4: [[0,0],[0,1],[1,0],[1,1]],
+    5: [[0,0],[0,1],[1,0],[1,1],[2,0]],
+    6: [[0,0],[0,1],[1,0],[1,1],[2,0],[2,1]],
+    7: [[0,0],[0,1],[1,0],[1,1],[2,0],[2,1],[3,0]],
+    8: [[0,0],[0,1],[1,0],[1,1],[2,0],[2,1],[3,0],[3,1]],
+    9: [[0,0],[0,1],[0,2],[1,0],[1,1],[1,2],[2,0],[2,1],[2,2]],
+    10: [[0,0],[0,1],[0,2],[1,0],[1,1],[1,2],[2,0],[2,1],[2,2],[3,1]],
+  };
+  if (layouts[n]) return layouts[n];
+  const cols = Math.ceil(Math.sqrt(n));
+  const result = [];
+  let count = 0, row = 0;
+  while (count < n) {
+    for (let col = 0; col < cols && count < n; col++) {
+      result.push([row, col]);
+      count++;
+    }
+    row++;
+  }
+  return result;
+}
+
+function getBlockDimensions(n) {
+  const layout = getBlockLayout(n);
+  let maxRow = 0, maxCol = 0;
+  layout.forEach(([r, c]) => { maxRow = Math.max(maxRow, r); maxCol = Math.max(maxCol, c); });
+  return { rows: maxRow + 1, cols: maxCol + 1 };
+}
+
+// ======================== SOUND SYSTEM (Web Audio API) ========================
+const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+
+function playBubbleBurst() {
+  const now = audioCtx.currentTime;
+  const bufferSize = audioCtx.sampleRate * 0.15;
+  const noiseBuffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
+  const data = noiseBuffer.getChannelData(0);
+  for (let i = 0; i < bufferSize; i++) data[i] = Math.random() * 2 - 1;
+  const noise = audioCtx.createBufferSource();
+  noise.buffer = noiseBuffer;
+  const bandpass = audioCtx.createBiquadFilter();
+  bandpass.type = 'bandpass';
+  bandpass.frequency.setValueAtTime(3000, now);
+  bandpass.frequency.exponentialRampToValueAtTime(300, now + 0.12);
+  bandpass.Q.value = 1.5;
+  const noiseGain = audioCtx.createGain();
+  noiseGain.gain.setValueAtTime(0.6, now);
+  noiseGain.gain.exponentialRampToValueAtTime(0.001, now + 0.12);
+  noise.connect(bandpass).connect(noiseGain).connect(audioCtx.destination);
+  noise.start(now); noise.stop(now + 0.15);
+
+  const osc = audioCtx.createOscillator();
+  osc.type = 'sine';
+  osc.frequency.setValueAtTime(600, now);
+  osc.frequency.exponentialRampToValueAtTime(120, now + 0.18);
+  const oscGain = audioCtx.createGain();
+  oscGain.gain.setValueAtTime(0.4, now);
+  oscGain.gain.exponentialRampToValueAtTime(0.001, now + 0.2);
+  osc.connect(oscGain).connect(audioCtx.destination);
+  osc.start(now); osc.stop(now + 0.2);
+
+  const ping = audioCtx.createOscillator();
+  ping.type = 'sine';
+  ping.frequency.setValueAtTime(1800, now + 0.02);
+  ping.frequency.exponentialRampToValueAtTime(2400, now + 0.08);
+  const pingGain = audioCtx.createGain();
+  pingGain.gain.setValueAtTime(0.15, now + 0.02);
+  pingGain.gain.exponentialRampToValueAtTime(0.001, now + 0.15);
+  ping.connect(pingGain).connect(audioCtx.destination);
+  ping.start(now + 0.02); ping.stop(now + 0.15);
+}
+
+function playSpawnPop() {
+  const now = audioCtx.currentTime;
+  const osc = audioCtx.createOscillator();
+  osc.type = 'sine';
+  osc.frequency.setValueAtTime(400, now);
+  osc.frequency.exponentialRampToValueAtTime(800, now + 0.08);
+  const gain = audioCtx.createGain();
+  gain.gain.setValueAtTime(0.25, now);
+  gain.gain.exponentialRampToValueAtTime(0.001, now + 0.1);
+  osc.connect(gain).connect(audioCtx.destination);
+  osc.start(now); osc.stop(now + 0.1);
+}
+
+function playDeletePoof() {
+  const now = audioCtx.currentTime;
+  const bufferSize = audioCtx.sampleRate * 0.12;
+  const noiseBuffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
+  const data = noiseBuffer.getChannelData(0);
+  for (let i = 0; i < bufferSize; i++) data[i] = Math.random() * 2 - 1;
+  const noise = audioCtx.createBufferSource();
+  noise.buffer = noiseBuffer;
+  const hp = audioCtx.createBiquadFilter();
+  hp.type = 'highpass'; hp.frequency.value = 2000;
+  const gain = audioCtx.createGain();
+  gain.gain.setValueAtTime(0.2, now);
+  gain.gain.exponentialRampToValueAtTime(0.001, now + 0.1);
+  noise.connect(hp).connect(gain).connect(audioCtx.destination);
+  noise.start(now); noise.stop(now + 0.12);
+}
+
+function playPuckSound() {
+  const now = audioCtx.currentTime;
+  const osc = audioCtx.createOscillator();
+  osc.type = 'triangle';
+  osc.frequency.setValueAtTime(520, now);
+  osc.frequency.exponentialRampToValueAtTime(380, now + 0.07);
+  const g = audioCtx.createGain();
+  g.gain.setValueAtTime(0.18, now);
+  g.gain.exponentialRampToValueAtTime(0.001, now + 0.09);
+  osc.connect(g).connect(audioCtx.destination);
+  osc.start(now); osc.stop(now + 0.09);
+  const click = audioCtx.createOscillator();
+  click.type = 'square';
+  click.frequency.setValueAtTime(1200, now);
+  const cg = audioCtx.createGain();
+  cg.gain.setValueAtTime(0.06, now);
+  cg.gain.exponentialRampToValueAtTime(0.001, now + 0.03);
+  click.connect(cg).connect(audioCtx.destination);
+  click.start(now); click.stop(now + 0.03);
+}
+
+function playSmashSound() {
+  const now = audioCtx.currentTime;
+  const osc = audioCtx.createOscillator();
+  osc.type = 'sine';
+  osc.frequency.setValueAtTime(80, now);
+  osc.frequency.exponentialRampToValueAtTime(30, now + 0.3);
+  const g = audioCtx.createGain();
+  g.gain.setValueAtTime(0.5, now);
+  g.gain.exponentialRampToValueAtTime(0.001, now + 0.35);
+  osc.connect(g).connect(audioCtx.destination);
+  osc.start(now); osc.stop(now + 0.35);
+  const clang = audioCtx.createOscillator();
+  clang.type = 'triangle';
+  clang.frequency.setValueAtTime(800, now);
+  clang.frequency.exponentialRampToValueAtTime(200, now + 0.15);
+  const cg = audioCtx.createGain();
+  cg.gain.setValueAtTime(0.3, now);
+  cg.gain.exponentialRampToValueAtTime(0.001, now + 0.2);
+  clang.connect(cg).connect(audioCtx.destination);
+  clang.start(now); clang.stop(now + 0.2);
+  const bufSize = audioCtx.sampleRate * 0.15;
+  const buf = audioCtx.createBuffer(1, bufSize, audioCtx.sampleRate);
+  const d = buf.getChannelData(0);
+  for (let i = 0; i < bufSize; i++) d[i] = Math.random() * 2 - 1;
+  const ns = audioCtx.createBufferSource();
+  ns.buffer = buf;
+  const lp = audioCtx.createBiquadFilter();
+  lp.type = 'lowpass'; lp.frequency.value = 1500;
+  const ng = audioCtx.createGain();
+  ng.gain.setValueAtTime(0.25, now);
+  ng.gain.exponentialRampToValueAtTime(0.001, now + 0.12);
+  ns.connect(lp).connect(ng).connect(audioCtx.destination);
+  ns.start(now); ns.stop(now + 0.15);
+}
+
+function playBlockSmashSound() {
+  const now = audioCtx.currentTime;
+  const bufSize = audioCtx.sampleRate * 0.1;
+  const buf = audioCtx.createBuffer(1, bufSize, audioCtx.sampleRate);
+  const d = buf.getChannelData(0);
+  for (let i = 0; i < bufSize; i++) d[i] = Math.random() * 2 - 1;
+  const ns = audioCtx.createBufferSource();
+  ns.buffer = buf;
+  const bp = audioCtx.createBiquadFilter();
+  bp.type = 'bandpass'; bp.frequency.value = 2500; bp.Q.value = 2;
+  const g = audioCtx.createGain();
+  g.gain.setValueAtTime(0.35, now);
+  g.gain.exponentialRampToValueAtTime(0.001, now + 0.08);
+  ns.connect(bp).connect(g).connect(audioCtx.destination);
+  ns.start(now); ns.stop(now + 0.1);
+  const osc = audioCtx.createOscillator();
+  osc.type = 'sawtooth';
+  osc.frequency.setValueAtTime(300, now);
+  osc.frequency.exponentialRampToValueAtTime(60, now + 0.15);
+  const og = audioCtx.createGain();
+  og.gain.setValueAtTime(0.12, now);
+  og.gain.exponentialRampToValueAtTime(0.001, now + 0.15);
+  osc.connect(og).connect(audioCtx.destination);
+  osc.start(now); osc.stop(now + 0.15);
+}
+
+let lastBounceTime = 0;
+function playBounceSound() {
+  const now = audioCtx.currentTime;
+  if (now - lastBounceTime < 0.08) return;
+  lastBounceTime = now;
+  const osc = audioCtx.createOscillator();
+  osc.type = 'sine';
+  osc.frequency.setValueAtTime(200 + Math.random() * 300, now);
+  osc.frequency.exponentialRampToValueAtTime(100, now + 0.06);
+  const g = audioCtx.createGain();
+  g.gain.setValueAtTime(0.08, now);
+  g.gain.exponentialRampToValueAtTime(0.001, now + 0.06);
+  osc.connect(g).connect(audioCtx.destination);
+  osc.start(now); osc.stop(now + 0.06);
+}
+
+// ======================== BACKGROUND ========================
+function createBackground() {
+  // Sky gradient using offscreen canvas
+  const canvas = document.createElement('canvas');
+  canvas.width = appWidth;
+  canvas.height = appHeight;
+  const ctx = canvas.getContext('2d');
+  const grad = ctx.createLinearGradient(0, 0, appWidth * 0.6, appHeight);
+  grad.addColorStop(0, '#e8f5e9');
+  grad.addColorStop(0.3, '#c8e6c9');
+  grad.addColorStop(0.6, '#dcedc8');
+  grad.addColorStop(1, '#f1f8e9');
+  ctx.fillStyle = grad;
+  ctx.fillRect(0, 0, appWidth, appHeight);
+
+  // Subtle diamond pattern
+  ctx.fillStyle = 'rgba(0,0,0,0.03)';
+  const size = 40;
+  for (let y = 0; y < appHeight; y += size) {
+    for (let x = 0; x < appWidth; x += size) {
+      ctx.beginPath();
+      ctx.moveTo(x + size/2, y);
+      ctx.lineTo(x + size, y + size/2);
+      ctx.lineTo(x + size/2, y + size);
+      ctx.lineTo(x, y + size/2);
+      ctx.closePath();
+      ctx.fill();
+    }
+  }
+
+  const bgSprite = new PIXI.Sprite(PIXI.Texture.from(canvas));
+  bgLayer.addChild(bgSprite);
+  return bgSprite;
+}
+
+const bgSprite = createBackground();
+
+// ======================== SUN SYSTEM ========================
+const sunContainer = new PIXI.Container();
+bgLayer.addChild(sunContainer);
+
+// Sun glow (concentric circles)
+const sunGlow = new PIXI.Graphics();
+sunContainer.addChild(sunGlow);
+
+// Sun body
+const sunBody = new PIXI.Graphics();
+sunContainer.addChild(sunBody);
+
+// Sun rays
+const sunRays = new PIXI.Graphics();
+sunContainer.addChild(sunRays);
+
+function drawSun(warmth) {
+  // Glow
+  sunGlow.clear();
+  for (let i = 5; i >= 0; i--) {
+    const r = 40 + i * 18;
+    const a = 0.03 * (1 - i / 6);
+    sunGlow.beginFill(0xffa500, a);
+    sunGlow.drawCircle(0, 0, r);
+    sunGlow.endFill();
+  }
+
+  // Body
+  sunBody.clear();
+  const baseColor = lerpColor(0xffa500, 0xffd93d, warmth);
+  sunBody.beginFill(baseColor);
+  sunBody.drawCircle(0, 0, 40);
+  sunBody.endFill();
+  // Bright center
+  sunBody.beginFill(0xfff6a8, 0.6);
+  sunBody.drawCircle(-8, -8, 18);
+  sunBody.endFill();
+}
+
+function drawSunRays() {
+  sunRays.clear();
+  const numRays = 12;
+  for (let i = 0; i < numRays; i++) {
+    const angle = (i / numRays) * Math.PI * 2;
+    const innerR = 50;
+    const outerR = 70;
+    sunRays.beginFill(0xffd93d, 0.12);
+    sunRays.moveTo(Math.cos(angle - 0.08) * innerR, Math.sin(angle - 0.08) * innerR);
+    sunRays.lineTo(Math.cos(angle) * outerR, Math.sin(angle) * outerR);
+    sunRays.lineTo(Math.cos(angle + 0.08) * innerR, Math.sin(angle + 0.08) * innerR);
+    sunRays.endFill();
+  }
+}
+
+drawSun(0.5);
+drawSunRays();
+
+function lerpColor(c1, c2, t) {
+  const r1 = (c1 >> 16) & 0xff, g1 = (c1 >> 8) & 0xff, b1 = c1 & 0xff;
+  const r2 = (c2 >> 16) & 0xff, g2 = (c2 >> 8) & 0xff, b2 = c2 & 0xff;
+  const r = Math.round(r1 + (r2 - r1) * t);
+  const g = Math.round(g1 + (g2 - g1) * t);
+  const b = Math.round(b1 + (b2 - b1) * t);
+  return (r << 16) | (g << 8) | b;
+}
+
+// Full day/night cycle: 120 seconds
+// t=0.0 sunrise, t=0.25 noon, t=0.5 sunset, t=0.75 midnight, t=1.0 sunrise again
+const SUN_CYCLE_DURATION = 120000;
+let sunStartTime = performance.now();
+let sunRaysAngle = 0;
+
+// ======================== MOON SYSTEM ========================
+const moonContainer = new PIXI.Container();
+nightSkyLayer.addChild(moonContainer);
+
+const moonBody = new PIXI.Graphics();
+// Draw crescent moon
+function drawMoon() {
+  moonBody.clear();
+  // Full moon disc
+  moonBody.beginFill(0xf5f5dc);
+  moonBody.drawCircle(0, 0, 30);
+  moonBody.endFill();
+  // Bright highlight
+  moonBody.beginFill(0xffffff, 0.5);
+  moonBody.drawCircle(-5, -5, 14);
+  moonBody.endFill();
+  // Crescent shadow (dark quarter)
+  moonBody.beginFill(0x0a0e2a, 0.6);
+  moonBody.drawCircle(10, -2, 22);
+  moonBody.endFill();
+  // Crater details
+  moonBody.beginFill(0xd0d0b8, 0.35);
+  moonBody.drawCircle(-8, 8, 5);
+  moonBody.drawCircle(-2, -10, 3);
+  moonBody.drawCircle(4, 5, 4);
+  moonBody.endFill();
+}
+drawMoon();
+moonContainer.addChild(moonBody);
+
+// Moon glow
+const moonGlow = new PIXI.Graphics();
+moonGlow.beginFill(0xf5f5dc, 0.06);
+moonGlow.drawCircle(0, 0, 80);
+moonGlow.endFill();
+moonGlow.beginFill(0xf5f5dc, 0.03);
+moonGlow.drawCircle(0, 0, 120);
+moonGlow.endFill();
+moonContainer.addChildAt(moonGlow, 0);
+moonContainer.alpha = 0;
+
+// ======================== CONSTELLATION STARS ========================
+// Constellation data: normalized coordinates (0-1) mapped to screen.
+// Each constellation: { name, stars: [[x,y,brightness]...], lines: [[i,j]...] }
+const CONSTELLATIONS = [
+  { // Orion
+    name: 'Orion', ox: 0.15, oy: 0.05,
+    stars: [[0,0,1],[.06,0,1],[.12,0,.9],  // belt
+            [-.03,-.08,1.2],[.15,-.08,1.1],  // shoulders
+            [-.05,.1,.9],[.17,.1,.8],  // feet
+            [.06,-.14,.7]],  // head
+    lines: [[0,1],[1,2],[3,0],[2,4],[3,7],[4,7],[5,0],[2,6]]
+  },
+  { // Ursa Major (Big Dipper)
+    name: 'Ursa Major', ox: 0.45, oy: 0.03,
+    stars: [[0,0,1],[.06,.02,1],[.12,.01,.9],[.16,.05,1],
+            [.22,.04,1.1],[.26,.02,1],[.24,-.02,.9]],
+    lines: [[0,1],[1,2],[2,3],[3,4],[4,5],[5,6],[6,3]]
+  },
+  { // Cassiopeia (W shape)
+    name: 'Cassiopeia', ox: 0.7, oy: 0.02,
+    stars: [[0,.02,1],[.04,0,1.1],[.08,.03,.9],[.12,0,1],[.16,.02,.9]],
+    lines: [[0,1],[1,2],[2,3],[3,4]]
+  },
+  { // Leo
+    name: 'Leo', ox: 0.3, oy: 0.22,
+    stars: [[0,0,1],[.04,-.04,1.1],[.08,-.02,.9],[.12,0,1],
+            [.06,.04,.8],[.02,.06,.9],[-.01,.03,.8]],
+    lines: [[0,1],[1,2],[2,3],[3,4],[4,5],[5,6],[6,0]]
+  },
+  { // Scorpius (tail section)
+    name: 'Scorpius', ox: 0.82, oy: 0.18,
+    stars: [[0,0,1.2],[.03,.03,1],[.05,.07,.9],[.04,.11,1],
+            [.02,.14,.9],[-.01,.16,.8],[-.04,.14,.7]],
+    lines: [[0,1],[1,2],[2,3],[3,4],[4,5],[5,6]]
+  },
+  { // Cygnus (Northern Cross)
+    name: 'Cygnus', ox: 0.55, oy: 0.1,
+    stars: [[.04,0,1.1],[.04,.04,1],[.04,.08,.9],[.04,.12,1],
+            [0,.06,.8],[.08,.06,.8]],
+    lines: [[0,1],[1,2],[2,3],[4,2],[2,5]]
+  },
+  { // Gemini (the twins)
+    name: 'Gemini', ox: 0.05, oy: 0.28,
+    stars: [[0,0,1.2],[.06,0,1.1],[0,.05,.8],[.06,.05,.8],
+            [-.01,.1,.7],[.07,.1,.7]],
+    lines: [[0,1],[0,2],[1,3],[2,4],[3,5]]
+  },
+];
+
+// Build star sprites from constellation data
+const starContainer = new PIXI.Container();
+nightSkyLayer.addChild(starContainer);
+starContainer.alpha = 0;
+
+const constellationLineGfx = new PIXI.Graphics();
+starContainer.addChild(constellationLineGfx);
+
+const allStars = []; // { gfx, screenX, screenY, brightness, twinklePhase }
+
+CONSTELLATIONS.forEach(c => {
+  // Map constellation to screen coords with some padding
+  const screenStars = c.stars.map(([sx, sy, br]) => {
+    const screenX = (c.ox + sx) * appWidth * 0.9 + appWidth * 0.05;
+    const screenY = (c.oy + sy) * appHeight * 0.55 + appHeight * 0.03;
+    return { screenX, screenY, brightness: br };
+  });
+
+  // Draw constellation lines (faint)
+  c.lines.forEach(([i, j]) => {
+    constellationLineGfx.lineStyle(0.6, 0xffffff, 0.15);
+    constellationLineGfx.moveTo(screenStars[i].screenX, screenStars[i].screenY);
+    constellationLineGfx.lineTo(screenStars[j].screenX, screenStars[j].screenY);
+  });
+
+  // Create star sprites
+  screenStars.forEach(({ screenX, screenY, brightness }) => {
+    const star = new PIXI.Graphics();
+    const size = 1.2 + brightness * 1.5;
+    // Star glow
+    star.beginFill(0xffffff, 0.15);
+    star.drawCircle(0, 0, size * 3);
+    star.endFill();
+    // Star core
+    star.beginFill(0xffffff, 0.9);
+    star.drawCircle(0, 0, size);
+    star.endFill();
+    // Bright center
+    star.beginFill(0xffffff, 1);
+    star.drawCircle(0, 0, size * 0.5);
+    star.endFill();
+    star.x = screenX;
+    star.y = screenY;
+    starContainer.addChild(star);
+    allStars.push({
+      gfx: star, screenX, screenY, brightness,
+      twinklePhase: Math.random() * Math.PI * 2,
+      twinkleSpeed: 0.5 + Math.random() * 1.5,
+    });
+  });
+});
+
+// Scatter additional ambient stars (not in constellations) for richer sky
+for (let i = 0; i < 80; i++) {
+  const sx = Math.random() * appWidth;
+  const sy = Math.random() * appHeight * 0.55;
+  const br = 0.3 + Math.random() * 0.5;
+  const star = new PIXI.Graphics();
+  const size = 0.6 + br;
+  star.beginFill(0xffffff, 0.1);
+  star.drawCircle(0, 0, size * 2.5);
+  star.endFill();
+  star.beginFill(0xffffff, 0.7);
+  star.drawCircle(0, 0, size);
+  star.endFill();
+  star.x = sx;
+  star.y = sy;
+  starContainer.addChild(star);
+  allStars.push({
+    gfx: star, screenX: sx, screenY: sy, brightness: br,
+    twinklePhase: Math.random() * Math.PI * 2,
+    twinkleSpeed: 0.8 + Math.random() * 2,
+  });
+}
+
+// ======================== SHOOTING STAR SYSTEM ========================
+const shootingStars = [];
+let shootingStarTimer = 0;
+let nextShootingStarSpawn = 300 + Math.random() * 600; // frames
+
+function spawnShootingStar() {
+  const startX = Math.random() * appWidth * 0.8 + appWidth * 0.1;
+  const startY = Math.random() * appHeight * 0.25;
+  const angle = Math.PI * 0.15 + Math.random() * Math.PI * 0.2; // roughly diagonal
+  const speed = 8 + Math.random() * 6;
+  const length = 60 + Math.random() * 40;
+
+  const trail = new PIXI.Graphics();
+  nightSkyLayer.addChild(trail);
+
+  shootingStars.push({
+    trail, x: startX, y: startY, angle, speed, length,
+    life: 0, maxLife: 40 + Math.random() * 20,
+    vx: Math.cos(angle) * speed,
+    vy: Math.sin(angle) * speed,
+  });
+}
+
+// ======================== NIGHT SKY OVERLAY ========================
+// Dark overlay that covers the background during night
+const nightOverlay = new PIXI.Graphics();
+nightOverlay.beginFill(0x0a0e2a);
+nightOverlay.drawRect(0, 0, appWidth, appHeight);
+nightOverlay.endFill();
+nightOverlay.alpha = 0;
+bgLayer.addChild(nightOverlay);
+
+// Dawn/Dusk color overlay
+const horizonGlow = new PIXI.Graphics();
+horizonGlow.alpha = 0;
+bgLayer.addChild(horizonGlow);
+
+function drawHorizonGlow(color, intensity) {
+  horizonGlow.clear();
+  // Gradient-like effect: several horizontal bands near bottom
+  const bands = 8;
+  for (let i = 0; i < bands; i++) {
+    const bandY = appHeight - (appHeight * 0.4) + (i / bands) * (appHeight * 0.4);
+    const bandH = (appHeight * 0.4) / bands + 2;
+    const alpha = intensity * (1 - i / bands) * 0.5;
+    horizonGlow.beginFill(color, alpha);
+    horizonGlow.drawRect(0, bandY, appWidth, bandH);
+    horizonGlow.endFill();
+  }
+}
+
+// Helper: get the phase of the day cycle
+// Returns object with: phase ('day','dusk','night','dawn'), nightAmount (0-1), duskDawnAmount (0-1)
+function getDayPhase(t) {
+  // t goes 0→1 over the full cycle
+  // 0.00-0.05: dawn (sun rising)
+  // 0.05-0.45: day
+  // 0.45-0.55: dusk (sun setting)
+  // 0.55-0.95: night
+  // 0.95-1.00: dawn again
+  let nightAmount = 0;
+  let duskDawnAmount = 0;
+  let phase = 'day';
+
+  if (t < 0.05) { // dawn
+    phase = 'dawn';
+    duskDawnAmount = 1 - t / 0.05; // 1→0
+    nightAmount = duskDawnAmount;
+  } else if (t < 0.45) { // day
+    phase = 'day';
+    nightAmount = 0;
+    duskDawnAmount = 0;
+  } else if (t < 0.55) { // dusk
+    phase = 'dusk';
+    duskDawnAmount = (t - 0.45) / 0.1; // 0→1
+    nightAmount = duskDawnAmount;
+  } else if (t < 0.95) { // night
+    phase = 'night';
+    nightAmount = 1;
+    duskDawnAmount = 0;
+  } else { // dawn
+    phase = 'dawn';
+    duskDawnAmount = 1 - (t - 0.95) / 0.05; // 1→0
+    nightAmount = duskDawnAmount;
+  }
+  return { phase, nightAmount, duskDawnAmount };
+}
+
+// ======================== COCONUT TREE ========================
+const TREE_SVG = `<svg viewBox="0 0 240 480" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="trunkGrad" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0%" stop-color="#5c3a1a"/>
+      <stop offset="25%" stop-color="#7a5a30"/>
+      <stop offset="50%" stop-color="#9a7a44"/>
+      <stop offset="75%" stop-color="#7a5a30"/>
+      <stop offset="100%" stop-color="#5c3a1a"/>
+    </linearGradient>
+    <linearGradient id="leafGrad1" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0%" stop-color="#3d7a2a"/>
+      <stop offset="40%" stop-color="#5aad3a"/>
+      <stop offset="100%" stop-color="#2d6a1e"/>
+    </linearGradient>
+    <linearGradient id="leafGrad2" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0%" stop-color="#347026"/>
+      <stop offset="50%" stop-color="#4e9e34"/>
+      <stop offset="100%" stop-color="#2a5e1a"/>
+    </linearGradient>
+  </defs>
+  <path d="M115,480 C112,470 108,420 106,370 C103,310 100,260 102,210 C104,170 110,140 118,125 L128,125 C132,140 136,170 137,210 C138,260 136,310 134,370 C132,420 130,470 128,480 Z" fill="url(#trunkGrad)" stroke="#4a2e14" stroke-width="0.5"/>
+  <g stroke="rgba(0,0,0,0.12)" stroke-width="1" fill="none">
+    <path d="M107,380 Q120,384 133,380"/><path d="M106,355 Q120,359 134,355"/>
+    <path d="M105,330 Q120,334 134,330"/><path d="M104,305 Q120,309 135,305"/>
+    <path d="M103,280 Q120,284 136,280"/><path d="M103,255 Q120,259 136,255"/>
+    <path d="M103,230 Q120,234 136,230"/><path d="M103,210 Q120,214 137,210"/>
+    <path d="M104,190 Q120,194 136,190"/><path d="M106,170 Q120,174 135,170"/>
+    <path d="M108,155 Q120,158 133,155"/><path d="M110,142 Q120,145 131,142"/>
+    <path d="M108,400 Q120,404 133,400"/><path d="M109,420 Q120,424 132,420"/>
+    <path d="M111,440 Q120,444 131,440"/><path d="M113,458 Q120,461 130,458"/>
+  </g>
+  <g><path d="M122,128 C140,115 175,105 210,130" stroke="url(#leafGrad1)" stroke-width="3" fill="none"/>
+  <g fill="url(#leafGrad1)"><path d="M140,118 C148,105 155,100 158,108 C152,108 146,114 140,118Z"/>
+  <path d="M155,114 C163,100 172,96 174,105 C168,106 160,110 155,114Z"/>
+  <path d="M170,112 C178,98 188,95 189,104 C183,106 176,110 170,112Z"/>
+  <path d="M185,116 C193,104 202,102 203,110 C197,112 190,114 185,116Z"/>
+  <path d="M198,122 C204,112 212,112 212,118 C207,119 202,120 198,122Z"/>
+  <path d="M145,122 C150,132 156,135 157,128 C153,127 148,125 145,122Z"/>
+  <path d="M160,120 C166,130 174,132 174,125 C170,124 164,122 160,120Z"/>
+  <path d="M175,118 C182,128 190,129 190,122 C186,121 180,120 175,118Z"/>
+  <path d="M190,122 C196,130 203,130 202,124 C198,123 194,122 190,122Z"/></g></g>
+  <g><path d="M122,130 C138,108 168,80 200,70" stroke="url(#leafGrad2)" stroke-width="3" fill="none"/>
+  <g fill="url(#leafGrad2)"><path d="M138,110 C144,95 152,88 154,97 C149,98 143,104 138,110Z"/>
+  <path d="M155,96 C162,80 170,75 172,84 C167,86 160,90 155,96Z"/>
+  <path d="M170,84 C178,68 186,65 187,74 C182,76 175,80 170,84Z"/>
+  <path d="M185,76 C192,64 200,63 200,71 C196,72 190,74 185,76Z"/>
+  <path d="M145,115 C150,125 158,126 157,118 C153,117 148,116 145,115Z"/>
+  <path d="M160,104 C166,114 174,114 173,107 C169,106 164,105 160,104Z"/>
+  <path d="M175,92 C182,100 190,100 189,93 C185,92 180,92 175,92Z"/></g></g>
+  <g><path d="M120,128 C118,100 122,60 135,25" stroke="url(#leafGrad1)" stroke-width="3" fill="none"/>
+  <g fill="url(#leafGrad1)"><path d="M120,100 C108,90 105,82 112,82 C114,86 116,92 120,100Z"/>
+  <path d="M120,78 C108,66 106,58 113,58 C115,62 117,70 120,78Z"/>
+  <path d="M122,58 C112,44 112,36 118,37 C119,42 120,50 122,58Z"/>
+  <path d="M126,40 C120,28 122,22 127,24 C127,28 126,34 126,40Z"/>
+  <path d="M122,100 C134,90 138,82 132,82 C130,86 126,92 122,100Z"/>
+  <path d="M124,78 C136,66 138,58 132,59 C130,63 127,70 124,78Z"/>
+  <path d="M127,58 C136,46 138,38 132,40 C131,44 129,50 127,58Z"/>
+  <path d="M130,40 C136,30 136,24 132,26 C131,30 130,35 130,40Z"/></g></g>
+  <g><path d="M118,128 C100,115 65,105 30,130" stroke="url(#leafGrad1)" stroke-width="3" fill="none"/>
+  <g fill="url(#leafGrad1)"><path d="M100,118 C92,105 85,100 82,108 C88,108 94,114 100,118Z"/>
+  <path d="M85,114 C77,100 68,96 66,105 C72,106 80,110 85,114Z"/>
+  <path d="M70,112 C62,98 52,95 51,104 C57,106 64,110 70,112Z"/>
+  <path d="M55,116 C47,104 38,102 37,110 C43,112 50,114 55,116Z"/>
+  <path d="M42,122 C36,112 28,112 28,118 C33,119 38,120 42,122Z"/>
+  <path d="M95,122 C90,132 84,135 83,128 C87,127 92,125 95,122Z"/>
+  <path d="M80,120 C74,130 66,132 66,125 C70,124 76,122 80,120Z"/>
+  <path d="M65,118 C58,128 50,129 50,122 C54,121 60,120 65,118Z"/>
+  <path d="M50,122 C44,130 37,130 38,124 C42,123 46,122 50,122Z"/></g></g>
+  <g><path d="M118,130 C102,108 72,80 40,70" stroke="url(#leafGrad2)" stroke-width="3" fill="none"/>
+  <g fill="url(#leafGrad2)"><path d="M102,110 C96,95 88,88 86,97 C91,98 97,104 102,110Z"/>
+  <path d="M85,96 C78,80 70,75 68,84 C73,86 80,90 85,96Z"/>
+  <path d="M70,84 C62,68 54,65 53,74 C58,76 65,80 70,84Z"/>
+  <path d="M55,76 C48,64 40,63 40,71 C44,72 50,74 55,76Z"/>
+  <path d="M95,115 C90,125 82,126 83,118 C87,117 92,116 95,115Z"/>
+  <path d="M80,104 C74,114 66,114 67,107 C71,106 76,105 80,104Z"/>
+  <path d="M65,92 C58,100 50,100 51,93 C55,92 60,92 65,92Z"/></g></g>
+  <g><path d="M116,132 C90,125 50,130 15,155" stroke="#2d6a1e" stroke-width="2.5" fill="none"/>
+  <g fill="#2d6a1e" opacity="0.7"><path d="M88,126 C82,116 76,114 76,120 C80,121 84,124 88,126Z"/>
+  <path d="M68,128 C60,120 54,118 54,124 C58,125 64,126 68,128Z"/>
+  <path d="M48,134 C40,128 34,128 35,133 C38,134 44,134 48,134Z"/>
+  <path d="M30,142 C24,136 18,138 20,142 C23,143 26,142 30,142Z"/></g></g>
+  <g><path d="M124,132 C150,125 190,130 225,155" stroke="#2d6a1e" stroke-width="2.5" fill="none"/>
+  <g fill="#2d6a1e" opacity="0.7"><path d="M152,126 C158,116 164,114 164,120 C160,121 156,124 152,126Z"/>
+  <path d="M172,128 C180,120 186,118 186,124 C182,125 176,126 172,128Z"/>
+  <path d="M192,134 C200,128 206,128 205,133 C202,134 196,134 192,134Z"/>
+  <path d="M210,142 C216,136 222,138 220,142 C217,143 214,142 210,142Z"/></g></g>
+  <g><path d="M124,126 C148,108 190,92 235,105" stroke="url(#leafGrad2)" stroke-width="2.5" fill="none"/>
+  <g fill="url(#leafGrad2)"><path d="M152,110 C160,96 168,92 170,100 C164,101 158,106 152,110Z"/>
+  <path d="M172,104 C180,90 190,88 191,96 C185,98 178,102 172,104Z"/>
+  <path d="M195,100 C202,90 210,90 210,97 C205,98 200,99 195,100Z"/>
+  <path d="M215,102 C220,94 228,96 226,102 C222,103 218,103 215,102Z"/>
+  <path d="M158,114 C164,122 170,122 170,116 C166,115 162,114 158,114Z"/>
+  <path d="M178,110 C184,118 192,117 191,111 C187,110 182,110 178,110Z"/>
+  <path d="M200,105 C206,112 214,110 212,105 C208,104 204,104 200,105Z"/></g></g>
+  <g><path d="M116,126 C92,108 50,92 5,105" stroke="url(#leafGrad2)" stroke-width="2.5" fill="none"/>
+  <g fill="url(#leafGrad2)"><path d="M88,110 C80,96 72,92 70,100 C76,101 82,106 88,110Z"/>
+  <path d="M68,104 C60,90 50,88 49,96 C55,98 62,102 68,104Z"/>
+  <path d="M45,100 C38,90 30,90 30,97 C35,98 40,99 45,100Z"/>
+  <path d="M25,102 C20,94 12,96 14,102 C18,103 22,103 25,102Z"/>
+  <path d="M82,114 C76,122 70,122 70,116 C74,115 78,114 82,114Z"/>
+  <path d="M62,110 C56,118 48,117 49,111 C53,110 58,110 62,110Z"/>
+  <path d="M40,105 C34,112 26,110 28,105 C32,104 36,104 40,105Z"/></g></g>
+  <g><path d="M124,125 C135,98 155,60 180,40" stroke="url(#leafGrad1)" stroke-width="2.5" fill="none"/>
+  <g fill="url(#leafGrad1)"><path d="M136,96 C142,82 150,78 150,86 C146,88 140,92 136,96Z"/>
+  <path d="M150,76 C158,60 166,58 165,66 C161,68 156,72 150,76Z"/>
+  <path d="M162,58 C168,44 175,44 174,52 C170,54 166,56 162,58Z"/>
+  <path d="M138,100 C146,108 152,106 150,100 C146,98 142,98 138,100Z"/>
+  <path d="M155,82 C162,90 168,86 166,81 C162,80 158,80 155,82Z"/></g></g>
+  <g><path d="M116,125 C105,98 85,60 60,40" stroke="url(#leafGrad1)" stroke-width="2.5" fill="none"/>
+  <g fill="url(#leafGrad1)"><path d="M104,96 C98,82 90,78 90,86 C94,88 100,92 104,96Z"/>
+  <path d="M90,76 C82,60 74,58 75,66 C79,68 84,72 90,76Z"/>
+  <path d="M78,58 C72,44 65,44 66,52 C70,54 74,56 78,58Z"/>
+  <path d="M102,100 C94,108 88,106 90,100 C94,98 98,98 102,100Z"/>
+  <path d="M85,82 C78,90 72,86 74,81 C78,80 82,80 85,82Z"/></g></g>
+  <ellipse cx="112" cy="132" rx="9" ry="8" fill="#6b3d1a" stroke="#4a2a10" stroke-width="1"/>
+  <ellipse cx="110" cy="130" rx="5" ry="4" fill="#8a5528" opacity="0.4"/>
+  <ellipse cx="128" cy="134" rx="8" ry="7.5" fill="#5c3415" stroke="#4a2a10" stroke-width="1"/>
+  <ellipse cx="126" cy="132" rx="4" ry="3.5" fill="#8a5528" opacity="0.4"/>
+  <ellipse cx="120" cy="138" rx="8.5" ry="8" fill="#724020" stroke="#4a2a10" stroke-width="1"/>
+  <ellipse cx="118" cy="136" rx="4.5" ry="4" fill="#9a6538" opacity="0.35"/>
+</svg>`;
+
+// Load tree as texture
+let treeSprite = null;
+{
+  const blob = new Blob([TREE_SVG], { type: 'image/svg+xml;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const img = new Image();
+  img.onload = () => {
+    // Render to canvas for crisp texture
+    const tc = document.createElement('canvas');
+    tc.width = 240; tc.height = 480;
+    const tctx = tc.getContext('2d');
+    tctx.drawImage(img, 0, 0, 240, 480);
+    const tex = PIXI.Texture.from(tc);
+    treeSprite = new PIXI.Sprite(tex);
+    treeSprite.x = 40;
+    treeSprite.y = appHeight - 480 - 28;
+    treeSprite.pivot.set(120, 480);
+    treeSprite.x = 40 + 120;
+    treeSprite.y = appHeight - 28;
+    treeLayer.addChild(treeSprite);
+    URL.revokeObjectURL(url);
+  };
+  img.src = url;
+}
+
+// Tree shadow
+const treeShadowGfx = new PIXI.Graphics();
+treeShadowGfx.beginFill(0x000000, 0.18);
+treeShadowGfx.drawEllipse(0, 0, 100, 20);
+treeShadowGfx.endFill();
+treeShadowGfx.x = 140;
+treeShadowGfx.y = appHeight - 28;
+treeShadowLayer.addChild(treeShadowGfx);
+
+// ======================== GRASS SYSTEM ========================
+const grassBackGfx = new PIXI.Graphics();
+grassBackGfx.beginFill(0x4a8c3f);
+grassBackGfx.drawRect(0, appHeight - 40, appWidth, 40);
+grassBackGfx.endFill();
+// Gradient effect with layered rects
+grassBackGfx.beginFill(0x6abf5e, 0.7);
+grassBackGfx.drawRect(0, appHeight - 35, appWidth, 25);
+grassBackGfx.endFill();
+grassLayer.addChild(grassBackGfx);
+
+const grassBlades = [];
+const grassBladeCount = Math.ceil(appWidth / 10);
+for (let i = 0; i < grassBladeCount; i++) {
+  const blade = new PIXI.Graphics();
+  const h = 18 + Math.random() * 22;
+  const w = 6;
+  const left = i * (appWidth / grassBladeCount) + (Math.random() - 0.5) * 8;
+  const hue = 100 + Math.random() * 30;
+  const light = 40 + Math.random() * 20;
+  const [r, g, b] = hslToRgb(hue / 360, 0.55, light / 100);
+  const color = (Math.round(r * 255) << 16) | (Math.round(g * 255) << 8) | Math.round(b * 255);
+
+  blade.beginFill(color);
+  blade.drawRoundedRect(-w/2, -h, w, h, 3);
+  blade.endFill();
+
+  blade.x = left;
+  blade.y = appHeight - 15;
+  blade.pivot.set(0, 0);
+  const skew = (Math.random() - 0.5) * 0.4;
+  blade.skew.x = skew;
+
+  grassLayer.addChild(blade);
+  grassBlades.push({
+    gfx: blade,
+    baseSkew: skew,
+    phase: Math.random() * Math.PI * 2,
+    speed: 0.8 + Math.random() * 0.6,
+    amplitude: 0.03 + Math.random() * 0.04,
+  });
+}
+
+// ======================== BIRD SYSTEM ========================
+const birds = [];
+
+function createBird() {
+  const goRight = Math.random() > 0.4;
+  const startX = goRight ? -40 : appWidth + 40;
+  const startY = 30 + Math.random() * (appHeight * 0.35);
+  const duration = 6 + Math.random() * 8;
+  const dy = (Math.random() - 0.5) * 80;
+  const endX = goRight ? appWidth + 80 : -80;
+
+  const birdGfx = new PIXI.Graphics();
+  // Draw bird (V-shape with body dot)
+  birdGfx.lineStyle(1.8, 0x333333);
+  birdGfx.moveTo(-13, 0);
+  birdGfx.quadraticCurveTo(-5, -8, 0, -2);
+  birdGfx.moveTo(0, -2);
+  birdGfx.quadraticCurveTo(5, -8, 13, 0);
+  birdGfx.lineStyle(0);
+  birdGfx.beginFill(0x444444);
+  birdGfx.drawCircle(0, 1, 2.5);
+  birdGfx.endFill();
+
+  if (!goRight) birdGfx.scale.x = -1;
+
+  birdGfx.x = startX;
+  birdGfx.y = startY;
+
+  birdLayer.addChild(birdGfx);
+
+  birds.push({
+    gfx: birdGfx,
+    startX, startY, endX, endY: startY + dy,
+    duration: duration * 60, // frames
+    elapsed: 0,
+    wingPhase: Math.random() * Math.PI * 2,
+  });
+}
+
+function spawnBird() {
+  createBird();
+}
+
+// Bird scheduling
+let birdTimer = 0;
+let nextBirdSpawn = 90 + Math.random() * 360; // frames
+
+// ======================== BLOCK SYSTEM ========================
+let blocks = [];
+let nextId = 1;
+let dragState = null;
+
+function createBlock(value, x, y, animate = true) {
+  const id = nextId++;
+  const dims = getBlockDimensions(value);
+  const bw = dims.cols * UNIT;
+  const bh = dims.rows * UNIT;
+  // Center on click position
+  const bx = x - bw / 2;
+  const by = y - bh / 2;
+
+  const container = new PIXI.Container();
+  container.x = bx;
+  container.y = by;
+  container.interactive = true;
+  container.cursor = 'grab';
+  container.zIndex = 1;
+
+  // Block data
+  const block = {
+    id, value, container,
+    expression: 'happy',
+    faceGfx: null,
+    cubesGfx: null,
+    labelText: null,
+    shadowGfx: null,
+    fuseZoneGfx: null,
+    _origAlpha: 1,
+    _origValue: value,
+    _spawnAnim: animate ? 0 : 1,
+    _deleteAnim: -1, // -1 = not deleting
+  };
+
+  renderBlock(block);
+  setupBlockInteraction(block);
+
+  blockLayer.addChild(container);
+
+  // Create shadow
+  const shadow = new PIXI.Graphics();
+  shadow.alpha = 0.12;
+  blockShadowLayer.addChild(shadow);
+  block.shadowGfx = shadow;
+
+  blocks.push(block);
+  if (animate) playSpawnPop();
+  return block;
+}
+
+function renderBlock(block) {
+  const { container, value } = block;
+  container.removeChildren();
+
+  const color = getBlockColor(value);
+  const layout = getBlockLayout(value);
+  const dims = getBlockDimensions(value);
+  const bw = dims.cols * UNIT;
+  const bh = dims.rows * UNIT;
+
+  // Draw all cubes in one Graphics
+  const cubesGfx = new PIXI.Graphics();
+  layout.forEach(([row, col]) => {
+    const cx = col * UNIT;
+    const cy = (dims.rows - 1 - row) * UNIT; // flip so row 0 is at bottom
+
+    // Slight shade variation by row
+    const shade = 1 - (row * 0.03);
+    const shadedColor = shadeColor(color, shade);
+
+    // Cube body
+    cubesGfx.lineStyle(2, 0xffffff, 0.35);
+    cubesGfx.beginFill(shadedColor);
+    cubesGfx.drawRoundedRect(cx, cy, UNIT, UNIT, 8);
+    cubesGfx.endFill();
+
+    // Highlight (top-left corner)
+    cubesGfx.lineStyle(0);
+    cubesGfx.beginFill(0xffffff, 0.25);
+    cubesGfx.drawRoundedRect(cx + 3, cy + 3, UNIT / 2 - 3, UNIT / 2 - 3, 4);
+    cubesGfx.endFill();
+  });
+  container.addChild(cubesGfx);
+  block.cubesGfx = cubesGfx;
+
+  // Face on top-center cube
+  const topCubes = layout.filter(([r]) => r === dims.rows - 1);
+  if (topCubes.length > 0) {
+    const faceCube = topCubes[Math.floor(topCubes.length / 2)];
+    const faceGfx = new PIXI.Graphics();
+    const faceX = faceCube[1] * UNIT + UNIT / 2 - 20;
+    const faceY = (dims.rows - 1 - faceCube[0]) * UNIT + UNIT - 28;
+    faceGfx.x = faceX;
+    faceGfx.y = faceY;
+    drawFace(faceGfx, 'happy');
+    container.addChild(faceGfx);
+    block.faceGfx = faceGfx;
+  }
+
+  // Number label
+  const isLightColor = (value === 10 || value === 20);
+  const label = new PIXI.Text(value.toString(), {
+    fontFamily: 'Segoe UI, Comic Sans MS, sans-serif',
+    fontSize: 20,
+    fontWeight: '900',
+    fill: isLightColor ? '#333' : '#fff',
+    dropShadow: true,
+    dropShadowDistance: 1,
+    dropShadowBlur: 3,
+    dropShadowAlpha: 0.5,
+    dropShadowColor: '#000',
+  });
+  label.anchor.set(0.5, 1);
+  label.x = bw / 2;
+  label.y = -4;
+  container.addChild(label);
+  block.labelText = label;
+
+  // Fuse zone indicator (hidden by default)
+  const fuseZone = new PIXI.Graphics();
+  fuseZone.visible = false;
+  container.addChild(fuseZone);
+  block.fuseZoneGfx = fuseZone;
+
+  container.hitArea = new PIXI.Rectangle(0, 0, bw, bh);
+}
+
+function shadeColor(color, factor) {
+  let r = (color >> 16) & 0xff;
+  let g = (color >> 8) & 0xff;
+  let b = color & 0xff;
+  r = Math.round(Math.min(255, r * factor));
+  g = Math.round(Math.min(255, g * factor));
+  b = Math.round(Math.min(255, b * factor));
+  return (r << 16) | (g << 8) | b;
+}
+
+// ======================== FACE DRAWING ========================
+function drawFace(g, expression, pupilOffX, pupilOffY) {
+  g.clear();
+  switch (expression) {
+    case 'happy': drawHappyFace(g); break;
+    case 'angry': drawAngryFace(g); break;
+    case 'sad': drawSadFace(g); break;
+    case 'irritated': drawIrritatedFace(g, pupilOffX || 0, pupilOffY || 0); break;
+    default: drawHappyFace(g);
+  }
+}
+
+function drawHappyFace(g) {
+  // White of eyes
+  g.beginFill(0xffffff);
+  g.drawEllipse(12, 8, 4, 5);
+  g.drawEllipse(28, 8, 4, 5);
+  g.endFill();
+  // Pupils
+  g.beginFill(0x222222);
+  g.drawEllipse(13, 9, 2, 2.5);
+  g.drawEllipse(29, 9, 2, 2.5);
+  g.endFill();
+  // Smile
+  g.lineStyle(2.2, 0xffffff);
+  g.moveTo(10, 19);
+  g.quadraticCurveTo(20, 27, 30, 19);
+  g.lineStyle(0);
+}
+
+function drawAngryFace(g) {
+  // Angry brows
+  g.lineStyle(2.5, 0xffffff);
+  g.moveTo(6, 2); g.lineTo(16, 5);
+  g.moveTo(34, 2); g.lineTo(24, 5);
+  g.lineStyle(0);
+  // Eyes
+  g.beginFill(0xffffff);
+  g.drawEllipse(12, 10, 4, 4);
+  g.drawEllipse(28, 10, 4, 4);
+  g.endFill();
+  g.beginFill(0x222222);
+  g.drawEllipse(13, 10, 2, 2);
+  g.drawEllipse(29, 10, 2, 2);
+  g.endFill();
+  // Angry mouth
+  g.lineStyle(2.2, 0xffffff);
+  g.moveTo(12, 22); g.lineTo(20, 19); g.lineTo(28, 22);
+  g.lineStyle(0);
+}
+
+function drawSadFace(g) {
+  // Sad eyes
+  g.beginFill(0xffffff);
+  g.drawEllipse(12, 9, 4, 5);
+  g.drawEllipse(28, 9, 4, 5);
+  g.endFill();
+  g.beginFill(0x222222);
+  g.drawEllipse(12, 11, 2, 2.5);
+  g.drawEllipse(28, 11, 2, 2.5);
+  g.endFill();
+  // Sad brows
+  g.lineStyle(1.8, 0xffffff);
+  g.moveTo(7, 4); g.lineTo(15, 2);
+  g.moveTo(33, 4); g.lineTo(25, 2);
+  // Frown
+  g.lineStyle(2.2, 0xffffff);
+  g.moveTo(12, 24);
+  g.quadraticCurveTo(20, 17, 28, 24);
+  g.lineStyle(0);
+}
+
+function drawIrritatedFace(g, pupilOffX, pupilOffY) {
+  // Squint eyes
+  g.beginFill(0xffffff);
+  g.drawEllipse(12, 9, 5, 3);
+  g.drawEllipse(28, 9, 5, 3);
+  g.endFill();
+  // Pupils (offset by eye tracking)
+  g.beginFill(0x222222);
+  g.drawEllipse(12 + pupilOffX, 9 + pupilOffY, 2.5, 2);
+  g.drawEllipse(28 + pupilOffX, 9 + pupilOffY, 2.5, 2);
+  g.endFill();
+  // Annoyed brows
+  g.lineStyle(2.2, 0xffffff);
+  g.moveTo(6, 3); g.lineTo(17, 4);
+  g.moveTo(34, 3); g.lineTo(23, 4);
+  // Wavy mouth
+  g.moveTo(11, 21);
+  g.quadraticCurveTo(16, 18, 20, 21);
+  g.quadraticCurveTo(24, 24, 29, 21);
+  g.lineStyle(0);
+}
+
+function setBlockExpression(block, expression, pupilOffX, pupilOffY) {
+  if (!block || !block.faceGfx) return;
+  if (block.expression === expression && expression !== 'irritated') return;
+  block.expression = expression;
+  drawFace(block.faceGfx, expression, pupilOffX, pupilOffY);
+}
+
+// ======================== BLOCK INTERACTION ========================
+function setupBlockInteraction(block) {
+  const c = block.container;
+  c.on('pointerdown', (e) => onBlockPointerDown(e, block));
+  c.on('rightclick', (e) => onBlockRightClick(e, block));
+  c.on('rightdown', (e) => { e.data.originalEvent.preventDefault(); });
+}
+
+function getBlockCenter(block) {
+  const dims = getBlockDimensions(block.value);
+  return {
+    x: block.container.x + (dims.cols * UNIT) / 2,
+    y: block.container.y + (dims.rows * UNIT) / 2,
+  };
+}
+
+function getDistance(a, b) {
+  return Math.sqrt((a.x - b.x) ** 2 + (a.y - b.y) ** 2);
+}
+
+function findFuseTarget(draggedBlock) {
+  let closest = null;
+  let closestDist = Infinity;
+  for (const block of blocks) {
+    if (block.id === draggedBlock.id) continue;
+    if (block._deleteAnim >= 0) continue;
+    const c1 = getBlockCenter(draggedBlock);
+    const c2 = getBlockCenter(block);
+    const dist = getDistance(c1, c2);
+    const fuseDist = FUSE_DISTANCE + (draggedBlock.value + block.value) * 5;
+    if (dist < fuseDist && dist < closestDist) {
+      closest = block;
+      closestDist = dist;
+    }
+  }
+  return closest;
+}
+
+function onBlockPointerDown(e, block) {
+  if (e.data.button !== 0) return;
+  e.stopPropagation();
+
+  const pos = e.data.getLocalPosition(app.stage);
+  dragState = {
+    block,
+    offsetX: pos.x - block.container.x,
+    offsetY: pos.y - block.container.y,
+    startX: block.container.x,
+    startY: block.container.y,
+    fuseTarget: null,
+    lastX: pos.x,
+    lastY: pos.y,
+    lastTime: performance.now(),
+    velocity: 0,
+  };
+
+  block.container.zIndex = 1000;
+  block.container.cursor = 'grabbing';
+  block.container.alpha = 0.9;
+
+  app.stage.on('pointermove', onDragMove);
+  app.stage.on('pointerup', onDragEnd);
+  app.stage.on('pointerupoutside', onDragEnd);
+}
+
+function updateProximityExpressions(draggedBlock) {
+  const dragCenter = getBlockCenter(draggedBlock);
+  for (const block of blocks) {
+    if (block.id === draggedBlock.id) continue;
+    if (block._deleteAnim >= 0) continue;
+    const c2 = getBlockCenter(block);
+    const dist = getDistance(dragCenter, c2);
+    const fuseDist = FUSE_DISTANCE + (draggedBlock.value + block.value) * 5;
+    const irritateDist = fuseDist + IRRITATE_DISTANCE;
+
+    if (dist < irritateDist) {
+      // Calculate pupil offset
+      const blockCenter = getBlockCenter(block);
+      const dx = dragCenter.x - blockCenter.x;
+      const dy = dragCenter.y - blockCenter.y;
+      const d = Math.sqrt(dx * dx + dy * dy) || 1;
+      const offX = (dx / d) * 2.5;
+      const offY = (dy / d) * 1;
+      setBlockExpression(block, 'irritated', offX, offY);
+    } else {
+      setBlockExpression(block, 'happy');
+    }
+  }
+}
+
+function resetAllExpressions() {
+  for (const block of blocks) {
+    if (block._deleteAnim >= 0) continue;
+    setBlockExpression(block, 'happy');
+  }
+}
+
+function showFuseZone(block, show) {
+  if (!block.fuseZoneGfx) return;
+  const fz = block.fuseZoneGfx;
+  fz.clear();
+  if (show) {
+    const dims = getBlockDimensions(block.value);
+    const bw = dims.cols * UNIT;
+    const bh = dims.rows * UNIT;
+    fz.lineStyle({ width: 3, color: 0xffff64, alpha: 0.6, alignment: 0.5 });
+    // Dashed outline simulation with small segments
+    const dashLen = 8, gapLen = 6;
+    drawDashedRect(fz, -4, -4, bw + 8, bh + 8, 8, dashLen, gapLen);
+    fz.visible = true;
+  } else {
+    fz.visible = false;
+  }
+}
+
+function drawDashedRect(g, x, y, w, h, r, dashLen, gapLen) {
+  // Simple approximation: draw a dotted rounded-rect-like outline
+  g.drawRoundedRect(x, y, w, h, r);
+}
+
+function showFusePreview(targetBlock, draggedBlock) {
+  targetBlock.container.alpha = 0.5;
+}
+
+function revertFusePreview(targetBlock) {
+  if (!targetBlock) return;
+  targetBlock.container.alpha = 1;
+}
+
+function onDragMove(e) {
+  if (!dragState) return;
+  const pos = e.data.getLocalPosition(app.stage);
+  let newX = pos.x - dragState.offsetX;
+  let newY = pos.y - dragState.offsetY;
+
+  const dims = getBlockDimensions(dragState.block.value);
+  const bw = dims.cols * UNIT;
+  const bh = dims.rows * UNIT;
+  newX = Math.max(0, Math.min(newX, appWidth - bw));
+  newY = Math.max(0, Math.min(newY, appHeight - bh));
+
+  dragState.block.container.x = newX;
+  dragState.block.container.y = newY;
+
+  // Velocity tracking
+  const now = performance.now();
+  const dt = now - dragState.lastTime;
+  if (dt > 0) {
+    const dx = pos.x - dragState.lastX;
+    const dy = pos.y - dragState.lastY;
+    const speed = Math.sqrt(dx * dx + dy * dy) / dt;
+    dragState.velocity = dragState.velocity * 0.6 + speed * 0.4;
+  }
+  dragState.lastX = pos.x;
+  dragState.lastY = pos.y;
+  dragState.lastTime = now;
+
+  // Expression based on speed
+  if (dragState.velocity > 1.5) {
+    setBlockExpression(dragState.block, 'angry');
+  } else {
+    setBlockExpression(dragState.block, 'happy');
+  }
+
+  // Proximity expressions
+  updateProximityExpressions(dragState.block);
+
+  // Fuse target detection
+  const target = findFuseTarget(dragState.block);
+  const prevTarget = dragState.fuseTarget;
+
+  if (prevTarget && prevTarget !== target) {
+    showFuseZone(prevTarget, false);
+    revertFusePreview(prevTarget);
+  }
+
+  dragState.fuseTarget = target;
+  if (target) {
+    showFuseZone(target, true);
+    if (prevTarget !== target) {
+      playPuckSound();
+      showFusePreview(target, dragState.block);
+    }
+  }
+}
+
+function onDragEnd(e) {
+  if (!dragState) return;
+  app.stage.off('pointermove', onDragMove);
+  app.stage.off('pointerup', onDragEnd);
+  app.stage.off('pointerupoutside', onDragEnd);
+
+  dragState.block.container.zIndex = 1;
+  dragState.block.container.cursor = 'grab';
+  dragState.block.container.alpha = 1;
+  setBlockExpression(dragState.block, 'happy');
+  resetAllExpressions();
+
+  if (dragState.fuseTarget) {
+    showFuseZone(dragState.fuseTarget, false);
+    revertFusePreview(dragState.fuseTarget);
+    fuseBlocks(dragState.block, dragState.fuseTarget);
+  }
+
+  dragState = null;
+}
+
+function removeBlock(id, animate = true) {
+  const idx = blocks.findIndex(b => b.id === id);
+  if (idx === -1) return;
+  const block = blocks[idx];
+
+  if (animate) {
+    setBlockExpression(block, 'sad');
+    playDeletePoof();
+    block._deleteAnim = 0; // Start delete animation
+    block.container.interactive = false;
+  } else {
+    if (block.shadowGfx) {
+      blockShadowLayer.removeChild(block.shadowGfx);
+      block.shadowGfx.destroy();
+    }
+    blockLayer.removeChild(block.container);
+    block.container.destroy({ children: true });
+    blocks.splice(idx, 1);
+  }
+}
+
+function fuseBlocks(blockA, blockB) {
+  const newValue = blockA.value + blockB.value;
+  const centerA = getBlockCenter(blockA);
+  const centerB = getBlockCenter(blockB);
+  const midX = (centerA.x + centerB.x) / 2;
+  const midY = (centerA.y + centerB.y) / 2;
+
+  removeBlock(blockA.id, false);
+  removeBlock(blockB.id, false);
+  playBubbleBurst();
+
+  const newBlock = createBlock(newValue, midX, midY, false);
+  // Fuse highlight animation
+  newBlock._fuseAnim = 0;
+
+  showFuseFlash(midX, midY);
+}
+
+function showFuseFlash(x, y) {
+  const flash = new PIXI.Graphics();
+  for (let i = 3; i >= 0; i--) {
+    const r = 15 + i * 12;
+    flash.beginFill(0xffff64, 0.6 * (1 - i / 4));
+    flash.drawCircle(0, 0, r);
+    flash.endFill();
+  }
+  flash.x = x;
+  flash.y = y;
+  effectLayer.addChild(flash);
+  // Remove after short animation
+  let flashLife = 0;
+  const flashAnim = () => {
+    flashLife++;
+    flash.alpha = 1 - flashLife / 24;
+    flash.scale.set(1 + flashLife * 0.03);
+    if (flashLife >= 24) {
+      effectLayer.removeChild(flash);
+      flash.destroy();
+      app.ticker.remove(flashAnim);
+    }
+  };
+  app.ticker.add(flashAnim);
+}
+
+function onBlockRightClick(e, block) {
+  e.data.originalEvent.preventDefault();
+  e.stopPropagation();
+  removeBlock(block.id, true);
+}
+
+// Click on empty space
+app.stage.interactive = true;
+app.stage.hitArea = new PIXI.Rectangle(0, 0, appWidth, appHeight);
+app.view.addEventListener('contextmenu', (e) => e.preventDefault());
+
+app.stage.on('pointerdown', (e) => {
+  if (e.data.button !== 0) return;
+  // Only trigger if we didn't click a block
+  const target = e.target;
+  if (target !== app.stage) return;
+
+  const pos = e.data.getLocalPosition(app.stage);
+
+  if (wreckMode) {
+    placePin(pos.x, pos.y);
+  } else {
+    createBlock(1, pos.x, pos.y);
+  }
+});
+
+// ======================== WRECKING BALL SYSTEM ========================
+let wreckMode = false;
+let wreckState = null;
+const WB_RADIUS = 25;
+const CHAIN_SEGMENTS = 6;
+
+window.toggleWreckMode = function() {
+  wreckMode = !wreckMode;
+  document.getElementById('wreckModeBtn').classList.toggle('active', wreckMode);
+  if (!wreckMode) clearWreckingBall();
+};
+
+function clearWreckingBall() {
+  if (wreckState) {
+    if (wreckState.pinGfx) { wreckLayer.removeChild(wreckState.pinGfx); wreckState.pinGfx.destroy(); }
+    if (wreckState.chainGfx) { wreckLayer.removeChild(wreckState.chainGfx); wreckState.chainGfx.destroy(); }
+    if (wreckState.ballGfx) { wreckLayer.removeChild(wreckState.ballGfx); wreckState.ballGfx.destroy(); }
+    wreckState = null;
+  }
+  document.getElementById('wreckBtn').style.display = 'none';
+}
+
+function placePin(x, y) {
+  clearWreckingBall();
+
+  // Pin
+  const pinGfx = new PIXI.Graphics();
+  pinGfx.beginFill(0x555555);
+  pinGfx.lineStyle(2, 0x333333);
+  pinGfx.drawCircle(0, 0, 7);
+  pinGfx.endFill();
+  pinGfx.x = x; pinGfx.y = y;
+  wreckLayer.addChild(pinGfx);
+
+  // Chain
+  const chainGfx = new PIXI.Graphics();
+  wreckLayer.addChild(chainGfx);
+
+  // Ball
+  const ballGfx = new PIXI.Graphics();
+  drawWreckBall(ballGfx);
+  ballGfx.x = x; ballGfx.y = y + 120;
+  ballGfx.interactive = true;
+  ballGfx.cursor = 'grab';
+  wreckLayer.addChild(ballGfx);
+
+  wreckState = {
+    pinX: x, pinY: y,
+    ballX: x, ballY: y + 120,
+    pinGfx, chainGfx, ballGfx,
+    placed: true, draggingBall: false, swinging: false,
+  };
+
+  drawChain();
+
+  // Show WRECK button
+  const wb = document.getElementById('wreckBtn');
+  wb.style.display = 'block';
+  wb.style.left = (x + 20) + 'px';
+  wb.style.top = Math.max(5, y - 30) + 'px';
+
+  // Ball drag
+  ballGfx.on('pointerdown', onBallPointerDown);
+}
+
+function drawWreckBall(g) {
+  g.clear();
+  // Main ball
+  g.beginFill(0x555555);
+  g.lineStyle(3, 0x222222);
+  g.drawCircle(0, 0, WB_RADIUS);
+  g.endFill();
+  // Highlight
+  g.lineStyle(0);
+  g.beginFill(0xffffff, 0.25);
+  g.drawEllipse(-5, -8, 7, 5);
+  g.endFill();
+}
+
+function drawChain() {
+  if (!wreckState) return;
+  const { pinX, pinY, ballX, ballY, chainGfx } = wreckState;
+  chainGfx.clear();
+
+  // Chain line
+  chainGfx.lineStyle({ width: 3, color: 0x555555 });
+  chainGfx.moveTo(pinX, pinY);
+  chainGfx.lineTo(ballX, ballY);
+  chainGfx.lineStyle(0);
+
+  // Chain links
+  const dx = ballX - pinX, dy = ballY - pinY;
+  for (let i = 1; i < CHAIN_SEGMENTS; i++) {
+    const t = i / CHAIN_SEGMENTS;
+    const cx = pinX + dx * t, cy = pinY + dy * t;
+    chainGfx.beginFill(0x666666);
+    chainGfx.lineStyle(1, 0x444444);
+    chainGfx.drawCircle(cx, cy, 3);
+    chainGfx.endFill();
+  }
+}
+
+function onBallPointerDown(e) {
+  if (e.data.button !== 0 || !wreckState || !wreckState.placed) return;
+  if (wreckState.swinging) return;
+  e.stopPropagation();
+  wreckState.draggingBall = true;
+  wreckState.ballGfx.cursor = 'grabbing';
+  app.stage.on('pointermove', onBallDragMove);
+  app.stage.on('pointerup', onBallDragEnd);
+  app.stage.on('pointerupoutside', onBallDragEnd);
+}
+
+function onBallDragMove(e) {
+  if (!wreckState || !wreckState.draggingBall) return;
+  const pos = e.data.getLocalPosition(app.stage);
+  let bx = pos.x, by = pos.y;
+  const dx = bx - wreckState.pinX, dy = by - wreckState.pinY;
+  const dist = Math.sqrt(dx * dx + dy * dy);
+  const maxLen = 250;
+  if (dist > maxLen) {
+    bx = wreckState.pinX + (dx / dist) * maxLen;
+    by = wreckState.pinY + (dy / dist) * maxLen;
+  }
+  wreckState.ballX = bx;
+  wreckState.ballY = by;
+  wreckState.ballGfx.x = bx;
+  wreckState.ballGfx.y = by;
+  drawChain();
+}
+
+function onBallDragEnd(e) {
+  if (!wreckState) return;
+  wreckState.draggingBall = false;
+  wreckState.ballGfx.cursor = 'grab';
+  app.stage.off('pointermove', onBallDragMove);
+  app.stage.off('pointerup', onBallDragEnd);
+  app.stage.off('pointerupoutside', onBallDragEnd);
+}
+
+window.releaseWreckingBall = function() {
+  if (!wreckState || wreckState.swinging) return;
+  document.getElementById('wreckBtn').style.display = 'none';
+  wreckState.swinging = true;
+  wreckState.ballGfx.cursor = 'default';
+
+  const { pinX, pinY, ballX, ballY } = wreckState;
+  const dx = ballX - pinX, dy = ballY - pinY;
+  const chainLen = Math.sqrt(dx * dx + dy * dy) || 120;
+  let angle = Math.atan2(dx, dy);
+  let angularVel = 0;
+  const GRAVITY = 0.0015;
+  const DAMPING = 0.997;
+  const MIN_ANGULAR_VEL = 0.0003;
+  let frameCount = 0;
+
+  playSmashSound();
+
+  const swingUpdate = () => {
+    if (!wreckState) { app.ticker.remove(swingUpdate); return; }
+
+    const angularAccel = -GRAVITY * Math.sin(angle);
+    angularVel += angularAccel;
+    angularVel *= DAMPING;
+    angle += angularVel;
+
+    let curX = pinX + Math.sin(angle) * chainLen;
+    let curY = pinY + Math.cos(angle) * chainLen;
+    const vx = Math.cos(angle) * angularVel * chainLen;
+    const vy = -Math.sin(angle) * angularVel * chainLen;
+
+    let bounced = false;
+    if (curX < WB_RADIUS) { curX = WB_RADIUS; angularVel = Math.abs(angularVel) * 0.5; bounced = true; }
+    if (curX > appWidth - WB_RADIUS) { curX = appWidth - WB_RADIUS; angularVel = -Math.abs(angularVel) * 0.5; bounced = true; }
+    if (curY < WB_RADIUS) { curY = WB_RADIUS; angularVel *= -0.5; bounced = true; }
+    if (curY > appHeight - WB_RADIUS) { curY = appHeight - WB_RADIUS; angularVel *= -0.5; bounced = true; }
+    if (bounced) angle = Math.atan2(curX - pinX, curY - pinY);
+
+    wreckState.ballX = curX;
+    wreckState.ballY = curY;
+    wreckState.ballGfx.x = curX;
+    wreckState.ballGfx.y = curY;
+    drawChain();
+
+    checkWreckCollisions(curX, curY, vx, vy);
+    frameCount++;
+
+    if (frameCount > 60 && Math.abs(angularVel) < MIN_ANGULAR_VEL && Math.abs(angle) < 0.02) {
+      wreckState.swinging = false;
+      wreckState.ballGfx.cursor = 'grab';
+      const wb = document.getElementById('wreckBtn');
+      wb.style.display = 'block';
+      wb.style.left = (pinX + 20) + 'px';
+      wb.style.top = Math.max(5, pinY - 30) + 'px';
+      app.ticker.remove(swingUpdate);
+      return;
+    }
+  };
+  app.ticker.add(swingUpdate);
+};
+
+function checkWreckCollisions(bx, by, bvx, bvy) {
+  const hitRadius = WB_RADIUS + 10;
+  const toRemove = [];
+  for (const block of blocks) {
+    if (block._deleteAnim >= 0) continue;
+    const center = getBlockCenter(block);
+    const dims = getBlockDimensions(block.value);
+    const blockRadius = Math.max(dims.cols, dims.rows) * UNIT / 2;
+    const dx = bx - center.x, dy = by - center.y;
+    const dist = Math.sqrt(dx * dx + dy * dy);
+    if (dist < hitRadius + blockRadius) toRemove.push(block);
+  }
+  for (const block of toRemove) wreckBlock(block, bvx, bvy);
+}
+
+function wreckBlock(block, impactVx, impactVy) {
+  const center = getBlockCenter(block);
+  const value = block.value;
+  const idx = blocks.findIndex(b => b.id === block.id);
+  if (idx === -1) return;
+
+  // Remove block immediately
+  if (block.shadowGfx) { blockShadowLayer.removeChild(block.shadowGfx); block.shadowGfx.destroy(); }
+  blockLayer.removeChild(block.container);
+  block.container.destroy({ children: true });
+  blocks.splice(idx, 1);
+
+  playBlockSmashSound();
+
+  const layout = getBlockLayout(value);
+  const dims = getBlockDimensions(value);
+  const topLeftX = center.x - (dims.cols * UNIT) / 2;
+  const topLeftY = center.y - (dims.rows * UNIT) / 2;
+  const impactSpeed = Math.sqrt(impactVx * impactVx + impactVy * impactVy) || 5;
+  const color = getBlockColor(value);
+
+  for (const [row, col] of layout) {
+    const cubeX = topLeftX + col * UNIT + UNIT / 2;
+    const cubeY = topLeftY + (dims.rows - 1 - row) * UNIT + UNIT / 2;
+    const scatter = 3;
+    const dvx = impactVx * 0.6 + (Math.random() - 0.5) * scatter * impactSpeed;
+    const dvy = impactVy * 0.6 + (Math.random() - 0.5) * scatter * impactSpeed;
+    spawnDebris(cubeX, cubeY, dvx, dvy, color);
+  }
+  showSmashFlash(center.x, center.y);
+}
+
+// ======================== DEBRIS SYSTEM ========================
+const debrisList = [];
+const DEBRIS_FRICTION = 0.985;
+const DEBRIS_BOUNCE = 0.55;
+const DEBRIS_GRAVITY = 0.15;
+const DEBRIS_SIZE = 20;
+
+function spawnDebris(x, y, vx, vy, color) {
+  const gfx = new PIXI.Graphics();
+  gfx.beginFill(color);
+  gfx.lineStyle(1.5, 0xffffff, 0.3);
+  gfx.drawRoundedRect(-DEBRIS_SIZE / 2, -DEBRIS_SIZE / 2, DEBRIS_SIZE, DEBRIS_SIZE, 4);
+  gfx.endFill();
+  gfx.x = x; gfx.y = y;
+  effectLayer.addChild(gfx);
+
+  const spin = (Math.random() - 0.5) * 0.25; // radians per frame
+  debrisList.push({ gfx, x, y, vx, vy, spin, angle: 0, life: 300 });
+}
+
+function showSmashFlash(x, y) {
+  const flash = new PIXI.Graphics();
+  for (let i = 3; i >= 0; i--) {
+    const r = 20 + i * 15;
+    flash.beginFill(0xffa032, 0.7 * (1 - i / 4));
+    flash.drawCircle(0, 0, r);
+    flash.endFill();
+  }
+  flash.x = x; flash.y = y;
+  effectLayer.addChild(flash);
+  let life = 0;
+  const anim = () => {
+    life++;
+    flash.alpha = 1 - life / 21;
+    flash.scale.set(1 + life * 0.04);
+    if (life >= 21) {
+      effectLayer.removeChild(flash);
+      flash.destroy();
+      app.ticker.remove(anim);
+    }
+  };
+  app.ticker.add(anim);
+}
+
+// ======================== SHADOW SYSTEM ========================
+function updateBlockShadows(dirX, lengthFactor, altitude, opacity) {
+  for (const block of blocks) {
+    if (!block.shadowGfx) continue;
+    if (block._deleteAnim >= 0) { block.shadowGfx.visible = false; continue; }
+
+    const dims = getBlockDimensions(block.value);
+    const bw = dims.cols * UNIT;
+    const bh = dims.rows * UNIT;
+    const offX = dirX * 30 * lengthFactor;
+    const scaleX = 1 + Math.abs(dirX) * 0.3;
+
+    const shadowGfx = block.shadowGfx;
+    shadowGfx.clear();
+    shadowGfx.beginFill(0x000000, 0.12);
+    shadowGfx.drawRoundedRect(0, 0, bw, bh * 0.3, 6);
+    shadowGfx.endFill();
+
+    shadowGfx.x = block.container.x + offX;
+    shadowGfx.y = block.container.y + bh;
+    shadowGfx.scale.x = scaleX;
+    shadowGfx.skew.x = -dirX * 0.35;
+    shadowGfx.alpha = Math.max(0.03, opacity * 0.18);
+    shadowGfx.visible = true;
+  }
+}
+
+// ======================== ANIMATION SYSTEM ========================
+// Simple animation list
+const activeAnims = [];
+
+// ======================== GAME LOOP ========================
+let elapsedTime = 0;
+
+app.ticker.add((delta) => {
+  elapsedTime += delta;
+  const now = performance.now();
+
+  // --- FULL DAY/NIGHT CYCLE ---
+  const cycleElapsed = (now - sunStartTime) % SUN_CYCLE_DURATION;
+  const t = cycleElapsed / SUN_CYCLE_DURATION;
+  const { phase, nightAmount, duskDawnAmount } = getDayPhase(t);
+
+  // --- SUN (only during day half: t=0.0 to t=0.5) ---
+  // Map t=0..0.5 to sunT=0..1 for the sun arc
+  const sunVisible = (t < 0.55);
+  if (sunVisible) {
+    const sunT = Math.min(1, t / 0.5); // 0→1 over first half
+    const sunX = -60 + (appWidth + 120) * sunT;
+    const arcHeight = appHeight * 0.75;
+    const sunY = appHeight - 40 - arcHeight * 4 * sunT * (1 - sunT);
+
+    sunContainer.x = sunX + 40;
+    sunContainer.y = sunY + 40;
+
+    const horizonFade = Math.min(1, 4 * sunT * (1 - sunT) * 2);
+    sunContainer.alpha = Math.max(0, horizonFade * (1 - nightAmount));
+
+    // Rotate rays
+    sunRaysAngle += 0.002 * delta;
+    sunRays.rotation = sunRaysAngle;
+
+    // Sun pulse
+    const pulse = 1 + Math.sin(now * 0.001) * 0.02;
+    sunBody.scale.set(pulse);
+
+    const warmth = 1 - 4 * Math.pow(sunT - 0.5, 2);
+    drawSun(warmth);
+
+    // Shadow direction
+    const sunCenterX = sunX + 40;
+    const sunAltitude = Math.max(0.1, 1 - (sunY / appHeight));
+    const shadowLengthFactor = 1.5 / Math.max(0.3, sunAltitude);
+    const shadowDirX = (appWidth / 2 - sunCenterX) / appWidth;
+
+    // Tree shadow
+    if (treeShadowGfx) {
+      const treeShX = shadowDirX * 120 * shadowLengthFactor;
+      const treeScale = 0.8 + (1 - sunAltitude) * 1.5;
+      treeShadowGfx.scale.x = treeScale;
+      treeShadowGfx.x = 140 + treeShX;
+      treeShadowGfx.alpha = Math.max(0.05, horizonFade * 0.25) * (1 - nightAmount);
+    }
+
+    // Block shadows
+    updateBlockShadows(shadowDirX, shadowLengthFactor, sunAltitude, horizonFade * (1 - nightAmount));
+  } else {
+    sunContainer.alpha = 0;
+    if (treeShadowGfx) treeShadowGfx.alpha = 0;
+    updateBlockShadows(0, 1, 1, 0);
+  }
+
+  // --- NIGHT OVERLAY ---
+  nightOverlay.alpha = nightAmount * 0.85;
+
+  // --- DAWN / DUSK GLOW ---
+  if (phase === 'dusk') {
+    drawHorizonGlow(0xff6030, duskDawnAmount);
+    horizonGlow.alpha = 1;
+  } else if (phase === 'dawn') {
+    drawHorizonGlow(0xff8866, duskDawnAmount);
+    horizonGlow.alpha = 1;
+  } else {
+    horizonGlow.alpha = 0;
+  }
+
+  // --- MOON (night half: t=0.5 to t=1.0, same arc as sun) ---
+  // During night (t>=0.5), moon arcs across. At dawn (t<0.05), just fade out
+  // without moving — avoids the jarring reverse animation.
+  if (t >= 0.5) {
+    // Map 0.5→1.0 to moonT 0→1
+    const moonT = (t - 0.5) / 0.5;
+
+    // Same arc formula as the sun for consistent horizon level
+    const moonX = -60 + (appWidth + 120) * moonT;
+    const moonArcH = appHeight * 0.75;
+    const moonY = appHeight - 40 - moonArcH * 4 * moonT * (1 - moonT);
+
+    moonContainer.x = moonX + 40;
+    moonContainer.y = moonY + 40;
+    // Fade near horizon edges, also factor in nightAmount for dusk transition
+    moonContainer.alpha = nightAmount * Math.min(1, 4 * moonT * (1 - moonT) * 3);
+  } else if (nightAmount > 0) {
+    // Dawn wrap: keep moon at last position, just fade out with nightAmount
+    moonContainer.alpha = nightAmount * 0.5;
+  } else {
+    moonContainer.alpha = 0;
+  }
+
+  // --- STARS ---
+  starContainer.alpha = nightAmount;
+  // Twinkle
+  for (const star of allStars) {
+    star.twinklePhase += delta * 0.016 * star.twinkleSpeed;
+    const twinkle = 0.5 + 0.5 * Math.sin(star.twinklePhase);
+    star.gfx.alpha = 0.4 + twinkle * 0.6 * star.brightness;
+    star.gfx.scale.set(0.8 + twinkle * 0.4);
+  }
+
+  // Constellation lines fade
+  constellationLineGfx.alpha = nightAmount * 0.5;
+
+  // --- SHOOTING STARS (only at night) ---
+  if (phase === 'night') {
+    shootingStarTimer += delta;
+    if (shootingStarTimer >= nextShootingStarSpawn) {
+      shootingStarTimer = 0;
+      nextShootingStarSpawn = 200 + Math.random() * 500;
+      spawnShootingStar();
+    }
+  }
+
+  for (let i = shootingStars.length - 1; i >= 0; i--) {
+    const ss = shootingStars[i];
+    ss.life += delta;
+    ss.x += ss.vx * delta;
+    ss.y += ss.vy * delta;
+
+    // Draw trail
+    ss.trail.clear();
+    const progress = ss.life / ss.maxLife;
+    const alpha = 1 - progress;
+    if (alpha > 0) {
+      // Head glow
+      ss.trail.beginFill(0xffffff, alpha * 0.8);
+      ss.trail.drawCircle(ss.x, ss.y, 2);
+      ss.trail.endFill();
+      // Tail
+      const tailLen = ss.length * (1 - progress * 0.5);
+      const tailX = ss.x - Math.cos(ss.angle) * tailLen;
+      const tailY = ss.y - Math.sin(ss.angle) * tailLen;
+      ss.trail.lineStyle({ width: 2, color: 0xffffff, alpha: alpha * 0.6 });
+      ss.trail.moveTo(ss.x, ss.y);
+      ss.trail.lineTo(tailX, tailY);
+      ss.trail.lineStyle({ width: 1, color: 0xaaddff, alpha: alpha * 0.3 });
+      const tailX2 = ss.x - Math.cos(ss.angle) * tailLen * 1.3;
+      const tailY2 = ss.y - Math.sin(ss.angle) * tailLen * 1.3;
+      ss.trail.moveTo(tailX, tailY);
+      ss.trail.lineTo(tailX2, tailY2);
+    }
+
+    if (ss.life >= ss.maxLife) {
+      nightSkyLayer.removeChild(ss.trail);
+      ss.trail.destroy();
+      shootingStars.splice(i, 1);
+    }
+  }
+
+  // --- TREE SWAY ---
+  if (treeSprite) {
+    const sway = Math.sin(now * 0.0012) * 0.015 + Math.sin(now * 0.0019) * 0.008;
+    treeSprite.rotation = sway;
+    // Darken tree at night
+    treeSprite.tint = lerpColor(0xffffff, 0x445566, nightAmount * 0.6);
+  }
+
+  // --- GRASS SWAY & NIGHT TINT ---
+  const grassNightTint = lerpColor(0xffffff, 0x334455, nightAmount * 0.5);
+  for (const blade of grassBlades) {
+    const swayAngle = Math.sin(now * 0.001 * blade.speed + blade.phase) * blade.amplitude;
+    blade.gfx.skew.x = blade.baseSkew + swayAngle;
+    blade.gfx.tint = grassNightTint;
+  }
+  grassBackGfx.tint = lerpColor(0xffffff, 0x223344, nightAmount * 0.6);
+
+  // --- BIRDS (only during day / dawn / dusk — fade out at night) ---
+  const birdsAllowed = (phase === 'day' || phase === 'dawn');
+  birdTimer += delta;
+  if (birdsAllowed && birdTimer >= nextBirdSpawn) {
+    birdTimer = 0;
+    nextBirdSpawn = 180 + Math.random() * 360;
+    const flockSize = Math.random() < 0.3 ? (2 + Math.floor(Math.random() * 3)) : 1;
+    for (let i = 0; i < flockSize; i++) {
+      setTimeout(() => { if (getDayPhase((performance.now() - sunStartTime) % SUN_CYCLE_DURATION / SUN_CYCLE_DURATION).phase !== 'night') spawnBird(); }, i * 400);
+    }
+  }
+
+  for (let i = birds.length - 1; i >= 0; i--) {
+    const bird = birds[i];
+    bird.elapsed += delta;
+    const bt = Math.min(1, bird.elapsed / bird.duration);
+
+    bird.gfx.x = bird.startX + (bird.endX - bird.startX) * bt;
+    bird.gfx.y = bird.startY + (bird.endY - bird.startY) * bt;
+
+    // Wing flap
+    bird.wingPhase += delta * 0.3;
+    const flapScale = 0.7 + Math.abs(Math.sin(bird.wingPhase)) * 0.6;
+    bird.gfx.scale.y = flapScale;
+
+    // Fade in/out + night fade
+    let birdAlpha = 1;
+    if (bt < 0.05) birdAlpha = bt / 0.05;
+    else if (bt > 0.9) birdAlpha = (1 - bt) / 0.1;
+    bird.gfx.alpha = birdAlpha * (1 - nightAmount);
+
+    if (bt >= 1 || nightAmount >= 1) {
+      birdLayer.removeChild(bird.gfx);
+      bird.gfx.destroy();
+      birds.splice(i, 1);
+    }
+  }
+
+  // --- BLOCK SPAWN ANIMATIONS ---
+  for (const block of blocks) {
+    if (block._spawnAnim < 1) {
+      block._spawnAnim = Math.min(1, block._spawnAnim + 0.08 * delta);
+      const s = easeOutBack(block._spawnAnim);
+      block.container.scale.set(s);
+    }
+
+    // Fuse highlight animation
+    if (block._fuseAnim !== undefined && block._fuseAnim < 1) {
+      block._fuseAnim = Math.min(1, block._fuseAnim + 0.04 * delta);
+      const s = 1 + 0.3 * (1 - block._fuseAnim) * Math.sin(block._fuseAnim * Math.PI);
+      block.container.scale.set(s);
+      if (block._fuseAnim >= 1) {
+        block.container.scale.set(1);
+        delete block._fuseAnim;
+      }
+    }
+  }
+
+  // --- BLOCK DELETE ANIMATIONS ---
+  for (let i = blocks.length - 1; i >= 0; i--) {
+    const block = blocks[i];
+    if (block._deleteAnim >= 0) {
+      block._deleteAnim += 0.06 * delta;
+      const dt = block._deleteAnim;
+      if (dt < 0.4) {
+        // Show sad face phase
+      } else {
+        const poof = (dt - 0.4) / 0.6;
+        block.container.scale.set(1 - poof * 0.7);
+        block.container.rotation = poof * 0.35;
+        block.container.alpha = 1 - poof;
+        if (poof >= 1) {
+          if (block.shadowGfx) {
+            blockShadowLayer.removeChild(block.shadowGfx);
+            block.shadowGfx.destroy();
+          }
+          blockLayer.removeChild(block.container);
+          block.container.destroy({ children: true });
+          blocks.splice(i, 1);
+        }
+      }
+    }
+  }
+
+  // --- DEBRIS ---
+  for (let i = debrisList.length - 1; i >= 0; i--) {
+    const d = debrisList[i];
+    d.vy += DEBRIS_GRAVITY;
+    d.vx *= DEBRIS_FRICTION;
+    d.vy *= DEBRIS_FRICTION;
+    d.x += d.vx;
+    d.y += d.vy;
+    d.angle += d.spin;
+    d.spin *= 0.98;
+    d.life--;
+
+    const half = DEBRIS_SIZE / 2;
+    if (d.x - half < 0) { d.x = half; d.vx = Math.abs(d.vx) * DEBRIS_BOUNCE; playBounceSound(); }
+    if (d.x + half > appWidth) { d.x = appWidth - half; d.vx = -Math.abs(d.vx) * DEBRIS_BOUNCE; playBounceSound(); }
+    if (d.y - half < 0) { d.y = half; d.vy = Math.abs(d.vy) * DEBRIS_BOUNCE; playBounceSound(); }
+    if (d.y + half > appHeight) { d.y = appHeight - half; d.vy = -Math.abs(d.vy) * DEBRIS_BOUNCE; playBounceSound(); }
+
+    // Debris → block collision
+    const speed = Math.sqrt(d.vx * d.vx + d.vy * d.vy);
+    if (speed > 2) {
+      for (let j = blocks.length - 1; j >= 0; j--) {
+        const block = blocks[j];
+        if (block._deleteAnim >= 0) continue;
+        const bc = getBlockCenter(block);
+        const dims = getBlockDimensions(block.value);
+        const br = Math.max(dims.cols, dims.rows) * UNIT / 2;
+        const dist = Math.sqrt((d.x - bc.x) ** 2 + (d.y - bc.y) ** 2);
+        if (dist < br + half) {
+          wreckBlock(block, d.vx * 0.5, d.vy * 0.5);
+          d.vx *= 0.3;
+          d.vy *= 0.3;
+          break;
+        }
+      }
+    }
+
+    d.gfx.x = d.x;
+    d.gfx.y = d.y;
+    d.gfx.rotation = d.angle;
+
+    if (d.life < 60) d.gfx.alpha = d.life / 60;
+
+    if (d.life <= 0 || (speed < 0.2 && d.life < 200)) {
+      effectLayer.removeChild(d.gfx);
+      d.gfx.destroy();
+      debrisList.splice(i, 1);
+    }
+  }
+});
+
+// ======================== EASING FUNCTIONS ========================
+function easeOutBack(t) {
+  const c1 = 1.70158;
+  const c3 = c1 + 1;
+  return 1 + c3 * Math.pow(t - 1, 3) + c1 * Math.pow(t - 1, 2);
+}
+
+// ======================== CLEAR ALL ========================
+window.clearAll = function() {
+  for (let i = blocks.length - 1; i >= 0; i--) {
+    const block = blocks[i];
+    if (block.shadowGfx) {
+      blockShadowLayer.removeChild(block.shadowGfx);
+      block.shadowGfx.destroy();
+    }
+    blockLayer.removeChild(block.container);
+    block.container.destroy({ children: true });
+  }
+  blocks = [];
+  clearWreckingBall();
+
+  for (const d of debrisList) {
+    effectLayer.removeChild(d.gfx);
+    d.gfx.destroy();
+  }
+  debrisList.length = 0;
+};
+
+// ======================== STARTER BLOCKS ========================
+setTimeout(() => {
+  const cx = appWidth / 2;
+  const cy = appHeight / 2;
+  createBlock(1, cx - 150, cy);
+  createBlock(2, cx - 50, cy);
+  createBlock(3, cx + 70, cy);
+  createBlock(4, cx + 200, cy);
+  createBlock(5, cx + 340, cy);
+}, 100);
+
+// Spawn first bird soon
+setTimeout(spawnBird, 1500);
+</script>
+</body>
+</html>
