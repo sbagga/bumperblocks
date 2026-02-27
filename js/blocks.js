@@ -396,6 +396,19 @@ function setupBlockInteraction(block) {
   c.on('pointerdown', (e) => onBlockPointerDown(e, block));
   c.on('rightclick', (e) => onBlockRightClick(e, block));
   c.on('rightdown', (e) => { e.data.originalEvent.preventDefault(); });
+
+  // Long-press to delete on touch (equivalent of right-click)
+  c.on('pointerdown', (e) => {
+    if (e.data.pointerType !== 'touch') return;
+    block._lpTimer = setTimeout(() => {
+      block._lpTimer = null;
+      removeBlock(block.id, true);
+    }, 600);
+  });
+  const cancelLp = () => { if (block._lpTimer) { clearTimeout(block._lpTimer); block._lpTimer = null; } };
+  c.on('pointermove', cancelLp);
+  c.on('pointerup', cancelLp);
+  c.on('pointerupoutside', cancelLp);
 }
 
 function getBlockCenter(block) {
@@ -429,8 +442,11 @@ function findFuseTarget(draggedBlock) {
 }
 
 function onBlockPointerDown(e, block) {
-  if (e.data.button !== 0) return;
+  if (e.data.button !== 0 && e.data.button !== -1) return;
   e.stopPropagation();
+
+  // Cancel long-press timer (will be re-evaluated by drag/tap outcome)
+  if (block._lpTimer) { clearTimeout(block._lpTimer); block._lpTimer = null; }
 
   const pos = e.data.getLocalPosition(app.stage);
   const localPos = e.data.getLocalPosition(block.container);
@@ -493,6 +509,8 @@ function onBlockPointerDown(e, block) {
     const dy = mp.y - trackState.startY;
     if (!trackState.hasDragged && (dx * dx + dy * dy) > _bSplit.dragDeadZonePx * _bSplit.dragDeadZonePx) {
       trackState.hasDragged = true;
+      // Cancel long-press timer on drag
+      if (block._lpTimer) { clearTimeout(block._lpTimer); block._lpTimer = null; }
       // Convert to normal drag (move)
       deselectBlock();
       dragState = {

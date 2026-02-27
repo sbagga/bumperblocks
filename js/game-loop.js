@@ -22,7 +22,7 @@ app.stage.hitArea = new PIXI.Rectangle(0, 0, appWidth, appHeight);
 app.view.addEventListener('contextmenu', (e) => e.preventDefault());
 
 app.stage.on('pointerdown', (e) => {
-  if (e.data.button !== 0) return;
+  if (e.data.button !== 0 && e.data.button !== -1) return;
   const target = e.target;
   if (target !== app.stage) return;
 
@@ -57,6 +57,13 @@ app.stage.on('pointerdown', (e) => {
 });
 
 // --- Main ticker ---
+let forceNightMode = false;
+window.toggleNightMode = function() {
+  forceNightMode = !forceNightMode;
+  const btn = document.getElementById('nightModeBtn');
+  btn.classList.toggle('active', forceNightMode);
+};
+
 let elapsedTime = 0;
 
 app.ticker.add((delta) => {
@@ -65,7 +72,7 @@ app.ticker.add((delta) => {
 
   // ---- FULL DAY/NIGHT CYCLE ----
   const cycleElapsed = (now - sunStartTime) % SUN_CYCLE_DURATION;
-  const t = cycleElapsed / SUN_CYCLE_DURATION;
+  const t = forceNightMode ? 0.75 : cycleElapsed / SUN_CYCLE_DURATION;
   const { phase, nightAmount, duskDawnAmount } = getDayPhase(t);
 
   // ---- SUN (day half: t = 0.0 → 0.5) ----
@@ -121,16 +128,8 @@ app.ticker.add((delta) => {
   // ---- NIGHT OVERLAY ----
   nightOverlay.alpha = nightAmount * _nightCfg.maxAlpha;
 
-  // ---- DAWN / DUSK GLOW ----
-  if (phase === 'dusk') {
-    drawHorizonGlow(_hGlowCfg.duskColor, duskDawnAmount);
-    horizonGlow.alpha = 1;
-  } else if (phase === 'dawn') {
-    drawHorizonGlow(_hGlowCfg.dawnColor, duskDawnAmount);
-    horizonGlow.alpha = 1;
-  } else {
-    horizonGlow.alpha = 0;
-  }
+  // ---- DAWN / DUSK GLOW (disabled) ----
+  horizonGlow.alpha = 0;
 
   // ---- MOON (night half: t = 0.5 → 1.0, same arc as sun) ----
   if (t >= 0.5) {
@@ -262,6 +261,9 @@ app.ticker.add((delta) => {
     }
   }
 
+  // ---- ZOMBIES (night only) ----
+  updateZombies(delta, nightAmount, phase);
+
   // ---- BLOCK SPAWN ANIMATIONS ----
   for (const block of blocks) {
     if (block._spawnAnim < 1) {
@@ -359,6 +361,7 @@ app.ticker.add((delta) => {
 // ======================== CLEAR ALL ========================
 window.clearAll = function() {
   deselectBlock();
+  clearZombies();
   for (let i = blocks.length - 1; i >= 0; i--) {
     const block = blocks[i];
     if (block.shadowGfx) {

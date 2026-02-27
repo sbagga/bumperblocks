@@ -37,7 +37,7 @@ function createBackground() {
   }
 
   const bgSprite = new PIXI.Sprite(PIXI.Texture.from(canvas));
-  bgLayer.addChild(bgSprite);
+  bgLayer.addChildAt(bgSprite, 0);
   return bgSprite;
 }
 

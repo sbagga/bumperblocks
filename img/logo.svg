@@ -1,0 +1,32 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 40" width="40" height="40">
+  <!-- Stacked colorful blocks with bold outlines -->
+  <!-- Bottom row: 2 blocks -->
+  <rect x="4" y="22" width="14" height="14" rx="3" fill="#ff4444" stroke="#c0392b" stroke-width="1.2"/>
+  <rect x="22" y="22" width="14" height="14" rx="3" fill="#3385ff" stroke="#1a5ec7" stroke-width="1.2"/>
+  <!-- Top block -->
+  <rect x="13" y="6" width="14" height="14" rx="3" fill="#ffcc00" stroke="#d4a800" stroke-width="1.2"/>
+  <!-- Block faces (eyes + smile) -->
+  <!-- Red block face -->
+  <circle cx="8.5" cy="27" r="1.4" fill="#fff"/>
+  <circle cx="13.5" cy="27" r="1.4" fill="#fff"/>
+  <circle cx="8.5" cy="27" r="0.7" fill="#111"/>
+  <circle cx="13.5" cy="27" r="0.7" fill="#111"/>
+  <path d="M8.5 30.5 Q11 33 13.5 30.5" stroke="#111" stroke-width="1" fill="none" stroke-linecap="round"/>
+  <!-- Blue block face -->
+  <circle cx="26.5" cy="27" r="1.4" fill="#fff"/>
+  <circle cx="31.5" cy="27" r="1.4" fill="#fff"/>
+  <circle cx="26.5" cy="27" r="0.7" fill="#111"/>
+  <circle cx="31.5" cy="27" r="0.7" fill="#111"/>
+  <path d="M26.5 30.5 Q29 33 31.5 30.5" stroke="#111" stroke-width="1" fill="none" stroke-linecap="round"/>
+  <!-- Yellow block face -->
+  <circle cx="17.5" cy="11" r="1.4" fill="#fff"/>
+  <circle cx="22.5" cy="11" r="1.4" fill="#fff"/>
+  <circle cx="17.5" cy="11" r="0.7" fill="#111"/>
+  <circle cx="22.5" cy="11" r="0.7" fill="#111"/>
+  <path d="M17.5 14.5 Q20 17 22.5 14.5" stroke="#111" stroke-width="1" fill="none" stroke-linecap="round"/>
+  <!-- Motion lines (bumper effect) -->
+  <line x1="1" y1="13" x2="6" y2="13" stroke="#ff4444" stroke-width="1.5" stroke-linecap="round" opacity="0.8"/>
+  <line x1="0" y1="17" x2="5" y2="17" stroke="#ff8800" stroke-width="1.5" stroke-linecap="round" opacity="0.7"/>
+  <line x1="34" y1="9" x2="39" y2="9" stroke="#3385ff" stroke-width="1.5" stroke-linecap="round" opacity="0.8"/>
+  <line x1="35" y1="13" x2="40" y2="13" stroke="#22b855" stroke-width="1.5" stroke-linecap="round" opacity="0.7"/>
+</svg>

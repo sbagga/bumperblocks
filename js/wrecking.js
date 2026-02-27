@@ -103,7 +103,7 @@ function drawChain() {
 }
 
 function onBallPointerDown(e) {
-  if (e.data.button !== 0 || !wreckState || !wreckState.placed) return;
+  if ((e.data.button !== 0 && e.data.button !== -1) || !wreckState || !wreckState.placed) return;
   if (wreckState.swinging) return;
   e.stopPropagation();
   wreckState.draggingBall = true;

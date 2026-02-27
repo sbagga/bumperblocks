@@ -244,3 +244,32 @@ function stopStretchSound() {
   _stretchGain = null;
   _stretchFilter = null;
 }
+
+function playZombieCubeBreak() {
+  const cfg = CONFIG.sound.zombieCubeBreak;
+  const now = audioCtx.currentTime;
+  // Short noise crackle
+  const bufSize = audioCtx.sampleRate * cfg.noiseDuration;
+  const buf = audioCtx.createBuffer(1, bufSize, audioCtx.sampleRate);
+  const d = buf.getChannelData(0);
+  for (let i = 0; i < bufSize; i++) d[i] = Math.random() * 2 - 1;
+  const ns = audioCtx.createBufferSource();
+  ns.buffer = buf;
+  const bp = audioCtx.createBiquadFilter();
+  bp.type = 'bandpass'; bp.frequency.value = cfg.bandpassFreq; bp.Q.value = cfg.bandpassQ;
+  const ng = audioCtx.createGain();
+  ng.gain.setValueAtTime(cfg.noiseGainStart, now);
+  ng.gain.exponentialRampToValueAtTime(0.001, now + cfg.noiseDecayTime);
+  ns.connect(bp).connect(ng).connect(audioCtx.destination);
+  ns.start(now); ns.stop(now + cfg.noiseDuration);
+  // Crack tone
+  const osc = audioCtx.createOscillator();
+  osc.type = 'triangle';
+  osc.frequency.setValueAtTime(cfg.crackStartFreq, now);
+  osc.frequency.exponentialRampToValueAtTime(cfg.crackEndFreq, now + cfg.crackSweepTime);
+  const og = audioCtx.createGain();
+  og.gain.setValueAtTime(cfg.crackGainStart, now);
+  og.gain.exponentialRampToValueAtTime(0.001, now + cfg.crackDecayTime);
+  osc.connect(og).connect(audioCtx.destination);
+  osc.start(now); osc.stop(now + cfg.crackDecayTime);
+}

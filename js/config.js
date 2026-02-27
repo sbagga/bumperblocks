@@ -1302,6 +1302,30 @@ const CONFIG = {
       /** Filter Q (resonance). Higher = more resonant/rubber-like overtone. */
       filterQ: 3,
     },
+
+    // ── Zombie Cube Break ──
+    zombieCubeBreak: {
+      /** Noise duration (seconds). Short crackle. */
+      noiseDuration: 0.08,
+      /** Bandpass center frequency (Hz). */
+      bandpassFreq: 3500,
+      /** Bandpass Q. */
+      bandpassQ: 2,
+      /** Noise gain start. */
+      noiseGainStart: 0.15,
+      /** Noise decay time (seconds). */
+      noiseDecayTime: 0.07,
+      /** Crack oscillator start frequency (Hz). */
+      crackStartFreq: 800,
+      /** Crack oscillator end frequency (Hz). */
+      crackEndFreq: 200,
+      /** Crack sweep time (seconds). */
+      crackSweepTime: 0.06,
+      /** Crack gain start. */
+      crackGainStart: 0.1,
+      /** Crack decay time (seconds). */
+      crackDecayTime: 0.08,
+    },
   },
 
   // ──────────────────────────── GAME / STARTUP ────────────────────────────
@@ -1320,5 +1344,133 @@ const CONFIG = {
 
     /** Default block value created on a stage click. */
     defaultNewBlockValue: 1,
+  },
+
+  // ──────────────────────────── ZOMBIES ────────────────────────────
+  zombies: {
+    // ── Spawning ──
+    spawn: {
+      /** Minimum interval (frames) between zombie spawns at night. */
+      intervalMinFrames: 90,
+      /** Random additional frames added to spawn interval. */
+      intervalRandomFrames: 150,
+      /** Maximum number of zombies alive at once. */
+      maxAlive: 4,
+    },
+
+    // ── Appearance ──
+    appearance: {
+      /** Zombie body width (px). */
+      bodyWidth: 22,
+      /** Zombie body height (px). */
+      bodyHeight: 30,
+      /** Zombie body color. */
+      bodyColor: 0x2d5a1e,
+      /** Zombie head radius (px). */
+      headRadius: 10,
+      /** Zombie head color. */
+      headColor: 0x4a8c3a,
+      /** Zombie eye color. */
+      eyeColor: 0xff0000,
+      /** Zombie eye glow color. */
+      eyeGlowColor: 0xff4444,
+      /** Zombie eye radius (px). */
+      eyeRadius: 2,
+      /** Zombie arm length (px). */
+      armLength: 14,
+      /** Zombie arm width (px line width). */
+      armWidth: 3,
+      /** Zombie arm color. */
+      armColor: 0x3d7a2e,
+      /** Zombie leg length (px). */
+      legLength: 12,
+      /** Zombie leg width (px line width). */
+      legWidth: 3,
+      /** Zombie leg color. */
+      legColor: 0x3d6a2e,
+      /** How far above the grass the zombie walks (px). */
+      groundOffsetPx: 35,
+    },
+
+    // ── Movement ──
+    movement: {
+      /** Base crawl speed (px per frame). */
+      crawlSpeed: 1.2,
+      /** Random additional crawl speed. */
+      crawlSpeedRange: 0.6,
+      /** Arm sway animation speed multiplier. */
+      armSwaySpeed: 0.06,
+      /** Arm sway amplitude (radians). */
+      armSwayAmplitude: 0.4,
+      /** Leg sway speed multiplier. */
+      legSwaySpeed: 0.08,
+      /** Leg sway amplitude (radians). */
+      legSwayAmplitude: 0.3,
+      /** Body bob speed multiplier. */
+      bobSpeed: 0.1,
+      /** Body bob amplitude (px). */
+      bobAmplitude: 2,
+      /** Probability (0–1) of spawning from the right side. */
+      spawnRightProbability: 0.5,
+      /** Off-screen buffer for spawn/despawn (px). */
+      offScreenBufferPx: 50,
+      /** Minimum distance to a block before stopping to aim (px). */
+      aimDistancePx: 180,
+    },
+
+    // ── Shooting ──
+    shooting: {
+      /** Frames the zombie pauses to aim before firing. */
+      aimDurationFrames: 60,
+      /** Bullet speed (px per frame). */
+      bulletSpeed: 4,
+      /** Bullet radius (px). */
+      bulletRadius: 4,
+      /** Bullet color. */
+      bulletColor: 0xaaff44,
+      /** Bullet glow color. */
+      bulletGlowColor: 0x88cc22,
+      /** Bullet glow radius (px). */
+      bulletGlowRadius: 8,
+      /** Bullet glow alpha. */
+      bulletGlowAlpha: 0.3,
+      /** Maximum bullet lifetime (frames) before auto-removal. */
+      bulletLifetimeFrames: 300,
+      /** Cooldown frames between shots for a single zombie. */
+      shotCooldownFrames: 120,
+      /** Aim wobble (radians) — random inaccuracy added to aim angle. */
+      aimWobble: 0.15,
+    },
+
+    // ── Impact ──
+    impact: {
+      /** Flash color on cube break. */
+      flashColor: 0xaaff44,
+      /** Flash radius (px). */
+      flashRadius: 12,
+      /** Flash duration (frames). */
+      flashDurationFrames: 15,
+      /** Number of small debris particles on break. */
+      debrisCount: 4,
+      /** Debris size (px). */
+      debrisSize: 8,
+      /** Debris speed multiplier. */
+      debrisSpeed: 3,
+      /** Debris lifetime (frames). */
+      debrisLifeFrames: 40,
+      /** Debris gravity. */
+      debrisGravity: 0.08,
+      /** Debris friction. */
+      debrisFriction: 0.97,
+    },
+
+    // ── Fade ──
+    fade: {
+      /** Alpha multiplied by nightAmount to show/hide zombies. */
+      nightAlphaMultiplier: 1.0,
+      /** Frames to fade out when dawn arrives. */
+      dawnFadeFrames: 60,
+    },
+
   },
 };
