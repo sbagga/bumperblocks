@@ -851,6 +851,75 @@ const CONFIG = {
       /** Shadow alpha multiplier applied to the overall opacity. */
       alphaMultiplier: 0.18,
     },
+
+    // ── Selection Mode ──
+    selection: {
+      /** Tint color multiplied onto the whole block when entering selection mode. */
+      blockDarkenTint: 0xAABBDD,
+
+      /** Tint color applied to individual cubes that the user has toggled for detachment. */
+      selectedCubeTint: 0xFF8844,
+
+      /** Highlight overlay alpha drawn on top of selected cubes (0–1). */
+      selectedCubeOverlayAlpha: 0.35,
+
+      /** Selection border stroke width around the whole block (px). */
+      borderWidth: 2.5,
+
+      /** Selection border color. */
+      borderColor: 0xFFFFFF,
+
+      /** Selection border alpha (0–1). */
+      borderAlpha: 0.75,
+
+      /** Selection border padding around block edges (px). */
+      borderPadding: 4,
+
+      /** Selection border corner radius (px). */
+      borderCornerRadius: 8,
+
+      /** Highlight border drawn on each individually-selected cube: width (px). */
+      cubeBorderWidth: 2,
+
+      /** Highlight border on selected cubes: color. */
+      cubeBorderColor: 0xFFFFFF,
+
+      /** Highlight border on selected cubes: alpha. */
+      cubeBorderAlpha: 0.9,
+    },
+
+    // ── Block Splitting (Rubber Band) ──
+    splitting: {
+      /** Drag distance (px) from the block center at which the split executes mid-drag. */
+      thresholdDistancePx: 100,
+
+      /** Maximum skew deformation at full stretch (radians). */
+      maxSkew: 0.25,
+
+      /** Maximum scale multiplier in drag direction at full stretch. */
+      maxStretch: 1.25,
+
+      /** Resistance curve exponent. <1 = easy start, hard end. */
+      resistanceExponent: 0.6,
+
+      /** Rubber band connector base line width (px). */
+      rubberBandWidth: 5,
+
+      /** Rubber band connector color. */
+      rubberBandColor: 0xFFDD44,
+
+      /** Rubber band connector base alpha (0–1). */
+      rubberBandAlpha: 0.65,
+
+      /** Speed at which block snaps back if released below threshold (0–1 lerp per frame). */
+      snapBackSpeed: 0.18,
+
+      /** Distance (px) the split-off piece pops away from the remaining piece. */
+      splitPopDistancePx: 80,
+
+      /** Minimum pointer movement (px) before deformation starts. */
+      dragDeadZonePx: 5,
+    },
   },
 
   // ──────────────────────────── WRECKING BALL SYSTEM ────────────────────────────
@@ -1192,6 +1261,46 @@ const CONFIG = {
       gainStart: 0.08,
       /** Gain decay time. */
       decayTime: 0.06,
+    },
+
+    split: {
+      /** Main downward "snap" oscillator start frequency (Hz). */
+      oscStartFreq: 500,
+      /** Snap oscillator end frequency. */
+      oscEndFreq: 150,
+      /** Frequency sweep time (seconds). */
+      sweepTime: 0.1,
+      /** Gain at onset. */
+      gainStart: 0.25,
+      /** Gain decay time. */
+      decayTime: 0.12,
+      /** High "twang" oscillator start frequency (Hz). Adds elastic snap character. */
+      twangStartFreq: 1000,
+      /** Twang end frequency. */
+      twangEndFreq: 600,
+      /** Twang sweep time. */
+      twangSweepTime: 0.06,
+      /** Twang gain at onset. */
+      twangGainStart: 0.12,
+      /** Twang decay time. */
+      twangDecayTime: 0.08,
+    },
+
+    rubberBandStretch: {
+      /** Base oscillator frequency (Hz) at 0% stretch. Rises with stretch progress. */
+      baseFreq: 120,
+      /** Additional frequency added at 100% stretch (Hz). Total freq = base + this * progress. */
+      freqRange: 280,
+      /** Oscillator gain (volume). Kept low for ambient tension effect. */
+      gain: 0.06,
+      /** Oscillator waveform type. "sawtooth" gives a tense, raspy quality. */
+      waveType: 'sawtooth',
+      /** Lowpass filter cutoff at 0% stretch (Hz). Opens up as stretch increases. */
+      filterBaseFreq: 200,
+      /** Additional filter cutoff added at 100% stretch (Hz). */
+      filterFreqRange: 800,
+      /** Filter Q (resonance). Higher = more resonant/rubber-like overtone. */
+      filterQ: 3,
     },
   },
 

@@ -203,7 +203,7 @@ function checkWreckCollisions(bx, by, bvx, bvy) {
   for (const block of blocks) {
     if (block._deleteAnim >= 0) continue;
     const center = getBlockCenter(block);
-    const dims = getBlockDimensions(block.value);
+    const dims = getBlockDims(block);
     const blockRadius = Math.max(dims.cols, dims.rows) * UNIT / 2;
     const dx = bx - center.x, dy = by - center.y;
     const dist = Math.sqrt(dx * dx + dy * dy);
@@ -215,6 +215,8 @@ function checkWreckCollisions(bx, by, bvx, bvy) {
 function wreckBlock(block, impactVx, impactVy) {
   const center = getBlockCenter(block);
   const value = block.value;
+  const layout = getBlockCells(block);
+  const dims = getBlockDims(block);
   const idx = blocks.findIndex(b => b.id === block.id);
   if (idx === -1) return;
 
@@ -225,8 +227,6 @@ function wreckBlock(block, impactVx, impactVy) {
 
   playBlockSmashSound();
 
-  const layout = getBlockLayout(value);
-  const dims = getBlockDimensions(value);
   const topLeftX = center.x - (dims.cols * UNIT) / 2;
   const topLeftY = center.y - (dims.rows * UNIT) / 2;
   const impactSpeed = Math.sqrt(impactVx * impactVx + impactVy * impactVy) || 5;

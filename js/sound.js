@@ -179,3 +179,68 @@ function playBounceSound() {
   osc.connect(g).connect(audioCtx.destination);
   osc.start(now); osc.stop(now + cfg.decayTime);
 }
+
+function playSplitSound() {
+  const cfg = CONFIG.sound.split;
+  const now = audioCtx.currentTime;
+  const osc = audioCtx.createOscillator();
+  osc.type = 'sine';
+  osc.frequency.setValueAtTime(cfg.oscStartFreq, now);
+  osc.frequency.exponentialRampToValueAtTime(cfg.oscEndFreq, now + cfg.sweepTime);
+  const gain = audioCtx.createGain();
+  gain.gain.setValueAtTime(cfg.gainStart, now);
+  gain.gain.exponentialRampToValueAtTime(0.001, now + cfg.decayTime);
+  osc.connect(gain).connect(audioCtx.destination);
+  osc.start(now); osc.stop(now + cfg.decayTime);
+  const twang = audioCtx.createOscillator();
+  twang.type = 'triangle';
+  twang.frequency.setValueAtTime(cfg.twangStartFreq, now);
+  twang.frequency.exponentialRampToValueAtTime(cfg.twangEndFreq, now + cfg.twangSweepTime);
+  const tg = audioCtx.createGain();
+  tg.gain.setValueAtTime(cfg.twangGainStart, now);
+  tg.gain.exponentialRampToValueAtTime(0.001, now + cfg.twangDecayTime);
+  twang.connect(tg).connect(audioCtx.destination);
+  twang.start(now); twang.stop(now + cfg.twangDecayTime);
+}
+
+// Continuous rubber band stretch tone — starts/stops/updates as user drags
+let _stretchOsc = null;
+let _stretchGain = null;
+let _stretchFilter = null;
+
+function startStretchSound() {
+  if (_stretchOsc) return; // already playing
+  const cfg = CONFIG.sound.rubberBandStretch;
+  _stretchOsc = audioCtx.createOscillator();
+  _stretchOsc.type = cfg.waveType;
+  _stretchOsc.frequency.value = cfg.baseFreq;
+  _stretchFilter = audioCtx.createBiquadFilter();
+  _stretchFilter.type = 'lowpass';
+  _stretchFilter.frequency.value = cfg.filterBaseFreq;
+  _stretchFilter.Q.value = cfg.filterQ;
+  _stretchGain = audioCtx.createGain();
+  _stretchGain.gain.value = 0; // fade in during update
+  _stretchOsc.connect(_stretchFilter).connect(_stretchGain).connect(audioCtx.destination);
+  _stretchOsc.start();
+}
+
+function updateStretchSound(progress) {
+  if (!_stretchOsc) return;
+  const cfg = CONFIG.sound.rubberBandStretch;
+  const p = Math.max(0, Math.min(progress, 1.5));
+  _stretchOsc.frequency.value = cfg.baseFreq + cfg.freqRange * p;
+  _stretchFilter.frequency.value = cfg.filterBaseFreq + cfg.filterFreqRange * p;
+  _stretchGain.gain.value = cfg.gain * Math.min(p * 2, 1); // fade in over first 50%
+}
+
+function stopStretchSound() {
+  if (!_stretchOsc) return;
+  try {
+    _stretchGain.gain.setValueAtTime(_stretchGain.gain.value, audioCtx.currentTime);
+    _stretchGain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.05);
+    _stretchOsc.stop(audioCtx.currentTime + 0.06);
+  } catch (e) { /* already stopped */ }
+  _stretchOsc = null;
+  _stretchGain = null;
+  _stretchFilter = null;
+}

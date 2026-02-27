@@ -28,6 +28,27 @@ app.stage.on('pointerdown', (e) => {
 
   const pos = e.data.getLocalPosition(app.stage);
 
+  // If a block is selected, clicking empty space deselects it (don't create a new block)
+  if (selectedBlock && !wreckMode) {
+    deselectBlock();
+    return;
+  }
+
+  // Don't spawn a block if the click is within one UNIT of an existing block
+  if (!wreckMode) {
+    for (const block of blocks) {
+      if (block._deleteAnim >= 0) continue;
+      const dims = getBlockDims(block);
+      const bx = block.container.x - UNIT;
+      const by = block.container.y - UNIT;
+      const bw = dims.cols * UNIT + UNIT * 2;
+      const bh = dims.rows * UNIT + UNIT * 2;
+      if (pos.x >= bx && pos.x <= bx + bw && pos.y >= by && pos.y <= by + bh) {
+        return; // click is too close to an existing block — do nothing
+      }
+    }
+  }
+
   if (wreckMode) {
     placePin(pos.x, pos.y);
   } else {
@@ -309,7 +330,7 @@ app.ticker.add((delta) => {
         const block = blocks[j];
         if (block._deleteAnim >= 0) continue;
         const bc = getBlockCenter(block);
-        const dims = getBlockDimensions(block.value);
+        const dims = getBlockDims(block);
         const br = Math.max(dims.cols, dims.rows) * UNIT / 2;
         const dist = Math.sqrt((d.x - bc.x) ** 2 + (d.y - bc.y) ** 2);
         if (dist < br + half) {
@@ -337,6 +358,7 @@ app.ticker.add((delta) => {
 
 // ======================== CLEAR ALL ========================
 window.clearAll = function() {
+  deselectBlock();
   for (let i = blocks.length - 1; i >= 0; i--) {
     const block = blocks[i];
     if (block.shadowGfx) {
