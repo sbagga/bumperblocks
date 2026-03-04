@@ -181,69 +181,53 @@ function playBounceSound() {
 }
 
 function playSplitSound() {
-  const cfg = CONFIG.sound.split;
+  // Legacy — kept for zombie system compatibility
+  playSplitExplosionSound();
+}
+
+// Forceful split explosion — short punchy "crack + boom" for double-tap split
+function playSplitExplosionSound() {
   const now = audioCtx.currentTime;
-  const osc = audioCtx.createOscillator();
-  osc.type = 'sine';
-  osc.frequency.setValueAtTime(cfg.oscStartFreq, now);
-  osc.frequency.exponentialRampToValueAtTime(cfg.oscEndFreq, now + cfg.sweepTime);
-  const gain = audioCtx.createGain();
-  gain.gain.setValueAtTime(cfg.gainStart, now);
-  gain.gain.exponentialRampToValueAtTime(0.001, now + cfg.decayTime);
-  osc.connect(gain).connect(audioCtx.destination);
-  osc.start(now); osc.stop(now + cfg.decayTime);
-  const twang = audioCtx.createOscillator();
-  twang.type = 'triangle';
-  twang.frequency.setValueAtTime(cfg.twangStartFreq, now);
-  twang.frequency.exponentialRampToValueAtTime(cfg.twangEndFreq, now + cfg.twangSweepTime);
-  const tg = audioCtx.createGain();
-  tg.gain.setValueAtTime(cfg.twangGainStart, now);
-  tg.gain.exponentialRampToValueAtTime(0.001, now + cfg.twangDecayTime);
-  twang.connect(tg).connect(audioCtx.destination);
-  twang.start(now); twang.stop(now + cfg.twangDecayTime);
+  // Impact thud
+  const thud = audioCtx.createOscillator();
+  thud.type = 'sine';
+  thud.frequency.setValueAtTime(200, now);
+  thud.frequency.exponentialRampToValueAtTime(60, now + 0.15);
+  const thudGain = audioCtx.createGain();
+  thudGain.gain.setValueAtTime(0.35, now);
+  thudGain.gain.exponentialRampToValueAtTime(0.001, now + 0.18);
+  thud.connect(thudGain).connect(audioCtx.destination);
+  thud.start(now); thud.stop(now + 0.2);
+  // Crack noise
+  const bufSize = audioCtx.sampleRate * 0.1;
+  const buf = audioCtx.createBuffer(1, bufSize, audioCtx.sampleRate);
+  const d = buf.getChannelData(0);
+  for (let i = 0; i < bufSize; i++) d[i] = Math.random() * 2 - 1;
+  const ns = audioCtx.createBufferSource();
+  ns.buffer = buf;
+  const bp = audioCtx.createBiquadFilter();
+  bp.type = 'bandpass'; bp.frequency.value = 2000; bp.Q.value = 1.5;
+  const ng = audioCtx.createGain();
+  ng.gain.setValueAtTime(0.25, now);
+  ng.gain.exponentialRampToValueAtTime(0.001, now + 0.1);
+  ns.connect(bp).connect(ng).connect(audioCtx.destination);
+  ns.start(now); ns.stop(now + 0.1);
+  // High snap
+  const snap = audioCtx.createOscillator();
+  snap.type = 'triangle';
+  snap.frequency.setValueAtTime(800, now);
+  snap.frequency.exponentialRampToValueAtTime(300, now + 0.06);
+  const snapGain = audioCtx.createGain();
+  snapGain.gain.setValueAtTime(0.15, now);
+  snapGain.gain.exponentialRampToValueAtTime(0.001, now + 0.08);
+  snap.connect(snapGain).connect(audioCtx.destination);
+  snap.start(now); snap.stop(now + 0.1);
 }
 
-// Continuous rubber band stretch tone — starts/stops/updates as user drags
-let _stretchOsc = null;
-let _stretchGain = null;
-let _stretchFilter = null;
-
-function startStretchSound() {
-  if (_stretchOsc) return; // already playing
-  const cfg = CONFIG.sound.rubberBandStretch;
-  _stretchOsc = audioCtx.createOscillator();
-  _stretchOsc.type = cfg.waveType;
-  _stretchOsc.frequency.value = cfg.baseFreq;
-  _stretchFilter = audioCtx.createBiquadFilter();
-  _stretchFilter.type = 'lowpass';
-  _stretchFilter.frequency.value = cfg.filterBaseFreq;
-  _stretchFilter.Q.value = cfg.filterQ;
-  _stretchGain = audioCtx.createGain();
-  _stretchGain.gain.value = 0; // fade in during update
-  _stretchOsc.connect(_stretchFilter).connect(_stretchGain).connect(audioCtx.destination);
-  _stretchOsc.start();
-}
-
-function updateStretchSound(progress) {
-  if (!_stretchOsc) return;
-  const cfg = CONFIG.sound.rubberBandStretch;
-  const p = Math.max(0, Math.min(progress, 1.5));
-  _stretchOsc.frequency.value = cfg.baseFreq + cfg.freqRange * p;
-  _stretchFilter.frequency.value = cfg.filterBaseFreq + cfg.filterFreqRange * p;
-  _stretchGain.gain.value = cfg.gain * Math.min(p * 2, 1); // fade in over first 50%
-}
-
-function stopStretchSound() {
-  if (!_stretchOsc) return;
-  try {
-    _stretchGain.gain.setValueAtTime(_stretchGain.gain.value, audioCtx.currentTime);
-    _stretchGain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.05);
-    _stretchOsc.stop(audioCtx.currentTime + 0.06);
-  } catch (e) { /* already stopped */ }
-  _stretchOsc = null;
-  _stretchGain = null;
-  _stretchFilter = null;
-}
+// Stretch sound stubs — kept for compatibility, no-ops now
+function startStretchSound() {}
+function updateStretchSound() {}
+function stopStretchSound() {}
 
 function playZombieCubeBreak() {
   const cfg = CONFIG.sound.zombieCubeBreak;

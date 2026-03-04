@@ -224,9 +224,6 @@ function destroyCubeFromBlock(block, hitRow, hitCol, bvx, bvy) {
   // Preserve shape: recreate block with remaining cells
   const center = getBlockCenter(block);
 
-  // Deselect if this block was selected
-  if (selectedBlock === block) deselectBlock();
-
   removeBlock(block.id, false);
 
   // Create the block with remaining cells, keeping the original center

@@ -16,7 +16,7 @@ const _birdCfg = CONFIG.environment.birds;
 const _bAnimCfg = CONFIG.blocks.animation;
 const _gameCfg = CONFIG.game;
 
-// --- Stage click handler (create block or place pin) ---
+// --- Stage click handler (place pin in wreck mode only; no free block creation) ---
 app.stage.interactive = true;
 app.stage.hitArea = new PIXI.Rectangle(0, 0, appWidth, appHeight);
 app.view.addEventListener('contextmenu', (e) => e.preventDefault());
@@ -28,32 +28,10 @@ app.stage.on('pointerdown', (e) => {
 
   const pos = e.data.getLocalPosition(app.stage);
 
-  // If a block is selected, clicking empty space deselects it (don't create a new block)
-  if (selectedBlock && !wreckMode) {
-    deselectBlock();
-    return;
-  }
-
-  // Don't spawn a block if the click is within one UNIT of an existing block
-  if (!wreckMode) {
-    for (const block of blocks) {
-      if (block._deleteAnim >= 0) continue;
-      const dims = getBlockDims(block);
-      const bx = block.container.x - UNIT;
-      const by = block.container.y - UNIT;
-      const bw = dims.cols * UNIT + UNIT * 2;
-      const bh = dims.rows * UNIT + UNIT * 2;
-      if (pos.x >= bx && pos.x <= bx + bw && pos.y >= by && pos.y <= by + bh) {
-        return; // click is too close to an existing block — do nothing
-      }
-    }
-  }
-
   if (wreckMode) {
     placePin(pos.x, pos.y);
-  } else {
-    createBlock(_gameCfg.defaultNewBlockValue, pos.x, pos.y);
   }
+  // No free block creation in stage mode
 });
 
 // --- Main ticker ---
@@ -307,6 +285,18 @@ app.ticker.add((delta) => {
     }
   }
 
+  // ---- SPLIT PHYSICS (double-tap split pieces flying) ----
+  if (typeof updateSplitPhysics === 'function') updateSplitPhysics(delta);
+
+  // ---- SPLIT PUFF PARTICLES ----
+  if (typeof updateSplitPuff === 'function') updateSplitPuff(delta);
+
+  // ---- CONFETTI (celebration) ----
+  if (typeof updateConfetti === 'function') updateConfetti(delta);
+
+  // ---- CELEBRATION ANIMATION ----
+  if (typeof updateCelebrationAnim === 'function') updateCelebrationAnim(delta);
+
   // ---- DEBRIS ----
   for (let i = debrisList.length - 1; i >= 0; i--) {
     const d = debrisList[i];
@@ -360,33 +350,37 @@ app.ticker.add((delta) => {
 
 // ======================== CLEAR ALL ========================
 window.clearAll = function() {
-  deselectBlock();
-  clearZombies();
-  for (let i = blocks.length - 1; i >= 0; i--) {
-    const block = blocks[i];
-    if (block.shadowGfx) {
-      blockShadowLayer.removeChild(block.shadowGfx);
-      block.shadowGfx.destroy();
+  if (typeof clearAllBlocks === 'function') {
+    clearAllBlocks();
+  } else {
+    clearZombies();
+    for (let i = blocks.length - 1; i >= 0; i--) {
+      const block = blocks[i];
+      if (block.shadowGfx) {
+        blockShadowLayer.removeChild(block.shadowGfx);
+        block.shadowGfx.destroy();
+      }
+      blockLayer.removeChild(block.container);
+      block.container.destroy({ children: true });
     }
-    blockLayer.removeChild(block.container);
-    block.container.destroy({ children: true });
+    blocks = [];
+    clearWreckingBall();
+    for (const d of debrisList) {
+      effectLayer.removeChild(d.gfx);
+      d.gfx.destroy();
+    }
+    debrisList.length = 0;
   }
-  blocks = [];
-  clearWreckingBall();
-
-  for (const d of debrisList) {
-    effectLayer.removeChild(d.gfx);
-    d.gfx.destroy();
-  }
-  debrisList.length = 0;
+  // Clear stage effects
+  if (typeof clearConfetti === 'function') clearConfetti();
+  if (typeof hideCelebrationBanner === 'function') hideCelebrationBanner();
 };
 
-// ======================== STARTER BLOCKS ========================
+// ======================== STAGE INITIALIZATION ========================
+// Load stage 1 after a short delay (replaces old starter blocks)
 setTimeout(() => {
-  const cx = appWidth / 2;
-  const cy = appHeight / 2;
-  for (const sb of _gameCfg.starterBlocks) {
-    createBlock(sb.value, cx + sb.offsetX, cy);
+  if (typeof loadStage === 'function') {
+    loadStage(1);
   }
 }, _gameCfg.starterBlockDelayMs);
 

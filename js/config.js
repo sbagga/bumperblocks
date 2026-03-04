@@ -1473,4 +1473,80 @@ const CONFIG = {
     },
 
   },
+
+  // ──────────────────────────── STAGE SYSTEM ────────────────────────────
+  stages: {
+    /** Base target value for stage 1. Target = baseTarget + stageNum * increment. */
+    baseTarget: 4,
+    /** Target increase per stage. */
+    targetIncrement: 2,
+    /** Minimum number of blocks given per stage. */
+    baseBlockCount: 3,
+    /** Extra blocks given per difficulty tier. */
+    blocksPerDifficulty: 1,
+    /** A new difficulty tier every N stages. */
+    difficultyInterval: 2,
+    /** Horizontal spacing (px) between spawned blocks. */
+    spawnSpacingPx: 100,
+    /** Time (ms) between stage completion and next stage loading. */
+    nextStageDelayMs: 3500,
+    /** Time (ms) before starter blocks appear for a new stage. */
+    stageStartDelayMs: 600,
+
+    // ── Double-Tap Split ──
+    split: {
+      /** Maximum ms between two taps to register as double-tap. */
+      doubleTapThresholdMs: 400,
+      /** Velocity magnitude of split pieces (px/frame). */
+      force: 7,
+      /** Upward bias added to split velocity Y. */
+      upwardBias: 0,
+      /** Per-frame velocity friction for split pieces. */
+      friction: 0.91,
+      /** Gravity applied to split pieces per frame. */
+      gravity: 0,
+      /** Wall bounce retention factor. */
+      bounceFactor: 0.4,
+      /** Speed threshold below which split velocity is cleared. */
+      stopSpeed: 0.4,
+      /** Frames to wait after stopping before auto-fuse check. */
+      autoFuseDelayFrames: 10,
+    },
+
+    // ── Split Puff Effect ──
+    splitPuff: {
+      /** Number of puff particles. */
+      particleCount: 12,
+      /** Particle size (px). */
+      particleSize: 6,
+      /** Particle speed. */
+      speed: 4,
+      /** Particle lifetime (frames). */
+      lifeFrames: 25,
+      /** Particle gravity. */
+      gravity: 0.06,
+      /** Particle colors — randomized per particle. */
+      colors: [0xffffff, 0xffeecc, 0xffddaa, 0xeeddcc],
+    },
+
+    // ── Confetti Celebration ──
+    confetti: {
+      /** Number of confetti pieces. */
+      count: 80,
+      /** Confetti piece size (px). */
+      size: 8,
+      /** Gravity for confetti fall. */
+      gravity: 0.08,
+      /** Horizontal spread speed. */
+      spreadX: 6,
+      /** Initial upward velocity. */
+      launchSpeed: 12,
+      /** Lifetime (frames). */
+      lifeFrames: 250,
+      /** Confetti colors. */
+      colors: [0xe74c3c, 0xe67e22, 0xf1c40f, 0x2ecc71, 0x3498db, 0x9b59b6, 0xe84393, 0xffffff],
+      /** Spin speed range. */
+      maxSpin: 0.2,
+    },
+  },
 };

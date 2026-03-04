@@ -45,8 +45,36 @@ All code lives in `js/*.js` loaded via plain `<script>` tags in `index.html`.
 - Visual rendering is in `renderBlock()` same file
 - Per-frame animation goes in the ticker in `js/game-loop.js`
 
+## Mobile Version
+
+A touch-optimized mobile version lives in `mobile/`. It reuses all game scripts  
+from `js/` via relative paths (`../js/`), adding only mobile-specific layers:
+
+| File | Purpose |
+|------|---------|
+| `mobile/index.html` | Full-screen HTML shell, floating toolbar, no header bar |
+| `mobile/js/mobile-config.js` | Patches CONFIG for mobile (smaller units, no header, responsive sizing) |
+| `mobile/js/mobile-ui.js` | Onboarding overlay, FAB toolbar, difficulty modal, touch fixes |
+
+**Load order**: `config → difficulty.config → mobile-config → constants → app → ... → game-loop → mobile-ui`
+
+### Modifying mobile behavior
+- **Screen-size adjustments**: Edit `mobile/js/mobile-config.js` breakpoints/values
+- **Touch UI / buttons**: Edit `mobile/js/mobile-ui.js` and `mobile/index.html` CSS
+- **Game logic changes**: Edit `js/*.js` — changes automatically apply to both desktop and mobile
+
+### Key mobile-desktop differences
+- No header bar (CONFIG.app.headerHeightInPixels = 0)
+- Smaller block units on phones (36-42px vs 48px)
+- Floating action buttons instead of header toolbar
+- Onboarding overlay for first-time users
+- Default zombie difficulty lowered (2 vs 3)
+
+See: [mobile/MOBILE_ARCHITECTURE.md](../mobile/MOBILE_ARCHITECTURE.md)
+
 ## Design Docs
 
 - [ARCHITECTURE.md](../ARCHITECTURE.md) — Layer system, file map, design principles
 - [docs/DAY_NIGHT_CYCLE.md](../docs/DAY_NIGHT_CYCLE.md) — Phase timing, sun/moon arc math, constellation data
 - [docs/SYSTEMS.md](../docs/SYSTEMS.md) — Block, wrecking ball, sound, environment details
+- [mobile/MOBILE_ARCHITECTURE.md](../mobile/MOBILE_ARCHITECTURE.md) — Mobile version architecture
