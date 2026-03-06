@@ -16,7 +16,7 @@ const _birdCfg = CONFIG.environment.birds;
 const _bAnimCfg = CONFIG.blocks.animation;
 const _gameCfg = CONFIG.game;
 
-// --- Stage click handler (place pin in wreck mode only; no free block creation) ---
+// --- Stage click handler (create block or place pin) ---
 app.stage.interactive = true;
 app.stage.hitArea = new PIXI.Rectangle(0, 0, appWidth, appHeight);
 app.view.addEventListener('contextmenu', (e) => e.preventDefault());
@@ -28,10 +28,26 @@ app.stage.on('pointerdown', (e) => {
 
   const pos = e.data.getLocalPosition(app.stage);
 
+  // Don't spawn a block if the click is within one UNIT of an existing block
+  if (!wreckMode) {
+    for (const block of blocks) {
+      if (block._deleteAnim >= 0) continue;
+      const dims = getBlockDims(block);
+      const bx = block.container.x - UNIT;
+      const by = block.container.y - UNIT;
+      const bw = dims.cols * UNIT + UNIT * 2;
+      const bh = dims.rows * UNIT + UNIT * 2;
+      if (pos.x >= bx && pos.x <= bx + bw && pos.y >= by && pos.y <= by + bh) {
+        return;
+      }
+    }
+  }
+
   if (wreckMode) {
     placePin(pos.x, pos.y);
+  } else {
+    createBlock(_gameCfg.defaultNewBlockValue, pos.x, pos.y);
   }
-  // No free block creation in stage mode
 });
 
 // --- Main ticker ---
@@ -43,6 +59,62 @@ window.toggleNightMode = function() {
 };
 
 let elapsedTime = 0;
+
+// ---- ZOMBIE COUNTDOWN HUD ----
+const zombieHudContainer = new PIXI.Container();
+effectLayer.addChild(zombieHudContainer);
+
+const zombieCountdownText = new PIXI.Text('', {
+  fontFamily: 'Segoe UI, sans-serif',
+  fontSize: 18,
+  fontWeight: '800',
+  fill: '#ff4444',
+  dropShadow: true,
+  dropShadowDistance: 1,
+  dropShadowBlur: 4,
+  dropShadowAlpha: 0.7,
+  dropShadowColor: '#000000',
+});
+zombieCountdownText.anchor.set(0.5, 0);
+zombieCountdownText.x = appWidth / 2;
+zombieCountdownText.y = 8;
+zombieCountdownText.alpha = 0;
+zombieHudContainer.addChild(zombieCountdownText);
+
+// Scary vignette overlay for when zombies are active
+const scaryVignette = new PIXI.Graphics();
+scaryVignette.alpha = 0;
+bgLayer.addChild(scaryVignette);
+
+function drawScaryVignette(intensity) {
+  scaryVignette.clear();
+  if (intensity <= 0) return;
+  // Soft corner vignettes using overlapping ellipses
+  const a = intensity * 0.18;
+  // Four corner darkening spots
+  const rx = appWidth * 0.45;
+  const ry = appHeight * 0.45;
+  scaryVignette.beginFill(0x110000, a);
+  scaryVignette.drawEllipse(0, 0, rx, ry);
+  scaryVignette.endFill();
+  scaryVignette.beginFill(0x110000, a);
+  scaryVignette.drawEllipse(appWidth, 0, rx, ry);
+  scaryVignette.endFill();
+  scaryVignette.beginFill(0x110000, a);
+  scaryVignette.drawEllipse(0, appHeight, rx, ry);
+  scaryVignette.endFill();
+  scaryVignette.beginFill(0x110000, a);
+  scaryVignette.drawEllipse(appWidth, appHeight, rx, ry);
+  scaryVignette.endFill();
+  // Thin top/bottom bars
+  scaryVignette.beginFill(0x0a0000, a * 0.5);
+  scaryVignette.drawRect(0, 0, appWidth, 6);
+  scaryVignette.drawRect(0, appHeight - 6, appWidth, 6);
+  scaryVignette.endFill();
+}
+
+let _zombieShakeAmount = 0;
+let _zombieCountdownPulse = 0;
 
 app.ticker.add((delta) => {
   elapsedTime += delta;
@@ -241,6 +313,99 @@ app.ticker.add((delta) => {
 
   // ---- ZOMBIES (night only) ----
   updateZombies(delta, nightAmount, phase);
+
+  // ---- ZOMBIE COUNTDOWN & SCARY EFFECTS ----
+  if (zombieDifficulty > 0 && !forceNightMode) {
+    const _duskStart = CONFIG.sky.dayNightCycle.duskStartFraction;
+    const _duskEnd = CONFIG.sky.dayNightCycle.duskEndFraction;
+    const _nightEnd = CONFIG.sky.dayNightCycle.nightEndFraction;
+    const cycleDur = SUN_CYCLE_DURATION / 1000; // seconds
+
+    // Seconds until zombies arrive
+    let secsUntilZombies = -1;
+    if (t < _duskStart) {
+      secsUntilZombies = Math.ceil((_duskStart - t) * cycleDur);
+    } else if (t >= _nightEnd) {
+      // After night ends, next cycle's dusk
+      secsUntilZombies = Math.ceil((1 - t + _duskStart) * cycleDur);
+    }
+
+    const isZombiePhase = (phase === 'night' || phase === 'dusk');
+
+    // Countdown text
+    if (secsUntilZombies > 0 && secsUntilZombies <= 30) {
+      _zombieCountdownPulse += delta * 0.1;
+      const pulse = 1 + Math.sin(_zombieCountdownPulse * 3) * 0.08;
+      const urgency = 1 - (secsUntilZombies / 30);
+      const r = Math.round(255);
+      const g = Math.round(255 * (1 - urgency * 0.8));
+      const b = Math.round(100 * (1 - urgency));
+      zombieCountdownText.style.fill = `rgb(${r},${g},${b})`;
+      zombieCountdownText.style.fontSize = 18 + urgency * 8;
+      zombieCountdownText.text = `\uD83E\uDDDF Zombies in ${secsUntilZombies}s`;
+      zombieCountdownText.alpha = Math.min(1, urgency + 0.3);
+      zombieCountdownText.scale.set(pulse);
+    } else if (isZombiePhase && zombies.length > 0) {
+      zombieCountdownText.text = `\uD83E\uDDDF ${zombies.length} Zombie${zombies.length > 1 ? 's' : ''} active!`;
+      zombieCountdownText.style.fill = '#ff2222';
+      zombieCountdownText.style.fontSize = 20;
+      zombieCountdownText.alpha = 0.6 + Math.sin(now * 0.005) * 0.2;
+      zombieCountdownText.scale.set(1);
+    } else {
+      zombieCountdownText.alpha *= 0.95;
+      if (zombieCountdownText.alpha < 0.01) zombieCountdownText.alpha = 0;
+    }
+
+    // Scary vignette during zombie phase
+    const targetVignette = isZombiePhase ? nightAmount : 0;
+    scaryVignette.alpha += (targetVignette - scaryVignette.alpha) * 0.02;
+    if (scaryVignette.alpha > 0.01) drawScaryVignette(scaryVignette.alpha);
+
+    // Screen shake when zombies shoot
+    if (isZombiePhase && zombieBullets.length > 0) {
+      _zombieShakeAmount = Math.min(2, _zombieShakeAmount + 0.3);
+    } else {
+      _zombieShakeAmount *= 0.9;
+    }
+    if (_zombieShakeAmount > 0.1) {
+      app.stage.x = (Math.random() - 0.5) * _zombieShakeAmount;
+      app.stage.y = (Math.random() - 0.5) * _zombieShakeAmount;
+    } else {
+      app.stage.x = 0;
+      app.stage.y = 0;
+    }
+  } else if (forceNightMode) {
+    // In forced night mode, show active zombie count
+    const isZombiePhase = true;
+    if (zombies.length > 0) {
+      zombieCountdownText.text = `\uD83E\uDDDF ${zombies.length} Zombie${zombies.length > 1 ? 's' : ''} active!`;
+      zombieCountdownText.style.fill = '#ff2222';
+      zombieCountdownText.style.fontSize = 20;
+      zombieCountdownText.alpha = 0.6 + Math.sin(now * 0.005) * 0.2;
+    } else {
+      zombieCountdownText.alpha *= 0.93;
+    }
+    // Vignette and shake in forced night
+    scaryVignette.alpha += (0.8 - scaryVignette.alpha) * 0.02;
+    if (scaryVignette.alpha > 0.01) drawScaryVignette(scaryVignette.alpha);
+    if (zombieBullets.length > 0) {
+      _zombieShakeAmount = Math.min(2, _zombieShakeAmount + 0.3);
+    } else {
+      _zombieShakeAmount *= 0.9;
+    }
+    if (_zombieShakeAmount > 0.1) {
+      app.stage.x = (Math.random() - 0.5) * _zombieShakeAmount;
+      app.stage.y = (Math.random() - 0.5) * _zombieShakeAmount;
+    } else {
+      app.stage.x = 0;
+      app.stage.y = 0;
+    }
+  } else {
+    zombieCountdownText.alpha = 0;
+    scaryVignette.alpha = 0;
+    app.stage.x = 0;
+    app.stage.y = 0;
+  }
 
   // ---- BLOCK SPAWN ANIMATIONS ----
   for (const block of blocks) {

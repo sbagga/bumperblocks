@@ -4,6 +4,7 @@
 
 Single-page PixiJS 7 (WebGL) children's block game. No build tools, no ES modules.  
 All code lives in `js/*.js` loaded via plain `<script>` tags in `index.html`.
+Do not display so  much text while generating code. Limit your output to critical points only. 
 
 ## Quick File Reference
 

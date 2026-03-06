@@ -511,7 +511,9 @@ function removeBlock(id, animate = true) {
 }
 
 function fuseBlocks(blockA, blockB) {
-  const newValue = blockA.value + blockB.value;
+  const valA = blockA.value;
+  const valB = blockB.value;
+  const newValue = valA + valB;
   const centerA = getBlockCenter(blockA);
   const centerB = getBlockCenter(blockB);
   const midX = (centerA.x + centerB.x) / 2;
@@ -526,13 +528,15 @@ function fuseBlocks(blockA, blockB) {
 
   showFuseFlash(midX, midY);
 
-  // Check if stage target is reached (direct inline check as fallback)
+  // Update equation display
+  if (typeof onBlocksFused === 'function') {
+    onBlocksFused(valA, valB);
+  }
+
+  // Check if stage target is reached
   try {
     if (typeof checkStageTarget === 'function') {
       checkStageTarget(newBlock);
-    } else if (typeof stageTarget !== 'undefined' && typeof stageActive !== 'undefined' && stageActive && newBlock.value >= stageTarget) {
-      console.warn('[Blocks] checkStageTarget not found, calling triggerCelebration directly');
-      if (typeof triggerCelebration === 'function') triggerCelebration(newBlock);
     }
   } catch (e) {
     console.error('[Blocks] Error in checkStageTarget:', e);

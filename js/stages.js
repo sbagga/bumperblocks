@@ -12,8 +12,15 @@ let currentStage = 1;
 let stageTarget = 0;
 let stageActive = false;
 let celebrationActive = false;
+let _stageGeneration = 0; // incremented on each stage load to cancel stale spawn timers
 const confettiList = [];
 const splitPuffList = [];
+
+// ======================== EQUATION STATE ========================
+let equation = [];           // Current operands, e.g. [2, 3, 1]
+let equationContainer = null; // PIXI container for the equation display
+let equationTexts = [];       // Array of PIXI.Text objects for each operand/operator
+let equationHighlightGfx = null;
 
 // ======================== STAGE GENERATION ========================
 
@@ -62,23 +69,30 @@ function getStageBlocks(stage) {
 // ======================== STAGE LIFECYCLE ========================
 
 function loadStage(stage) {
+  _stageGeneration++;
+  const gen = _stageGeneration;
+
   currentStage = stage;
   stageTarget = getStageTarget(stage);
-  stageActive = true;
   celebrationActive = false;
 
-  console.log(`[Stage] Loading stage ${stage}, target: ${stageTarget}, stageActive: ${stageActive}`);
+  console.log(`[Stage] Loading stage ${stage}, target: ${stageTarget}, gen: ${gen}`);
 
   // Clear existing blocks
   clearAllBlocks();
+  destroyEquationDisplay();
 
   // Update UI
   updateStageUI();
 
-  // Spawn blocks after a short delay
+  // Spawn blocks after a short delay (guarded by generation check)
   setTimeout(() => {
+    if (_stageGeneration !== gen) return;
     const stageBlocks = getStageBlocks(stage);
-    spawnStageBlocks(stageBlocks);
+    equation = stageBlocks.slice(); // store the equation operands
+    spawnStageBlocks(stageBlocks, gen);
+    buildEquationDisplay();
+    stageActive = true;
   }, _stageCfg.stageStartDelayMs);
 }
 
@@ -93,7 +107,7 @@ function clearAllBlocks() {
     blockLayer.removeChild(block.container);
     block.container.destroy({ children: true });
   }
-  blocks = [];
+  blocks.length = 0; // clear in-place instead of reassigning
   if (typeof clearWreckingBall === 'function') clearWreckingBall();
   if (typeof debrisList !== 'undefined') {
     for (const d of debrisList) {
@@ -104,26 +118,259 @@ function clearAllBlocks() {
   }
 }
 
-function spawnStageBlocks(values) {
-  const totalWidth = (values.length - 1) * _stageCfg.spawnSpacingPx;
+function spawnStageBlocks(values, gen) {
+  // Calculate spacing dynamically to fit all blocks within screen width
+  const maxVal = Math.max(...values);
+  const maxDims = getBlockDimensions(maxVal);
+  const maxBlockW = maxDims.cols * UNIT;
+  const margin = maxBlockW / 2 + 20;
+  const availableWidth = appWidth - margin * 2;
+  const desiredSpacing = _stageCfg.spawnSpacingPx;
+  const spacing = values.length <= 1 ? 0 : Math.min(desiredSpacing, availableWidth / (values.length - 1));
+
+  const totalWidth = (values.length - 1) * spacing;
   const startX = appWidth / 2 - totalWidth / 2;
-  const cy = appHeight * 0.55;
+  const cy = appHeight * 0.45;
 
   values.forEach((value, i) => {
     setTimeout(() => {
-      createBlock(value, startX + i * _stageCfg.spawnSpacingPx, cy);
+      // Guard: skip if stage was reloaded since this spawn was queued
+      if (_stageGeneration !== gen) return;
+      const x = Math.max(margin, Math.min(appWidth - margin, startX + i * spacing));
+      createBlock(value, x, cy);
     }, i * 120);
   });
 }
 
-// ======================== TARGET CHECK ========================
+// ======================== TARGET CHECK (EQUATION-AWARE) ========================
 
 function checkStageTarget(newBlock) {
-  console.log(`[Stage] checkStageTarget called — value: ${newBlock.value}, target: ${stageTarget}, stageActive: ${stageActive}, celebrationActive: ${celebrationActive}`);
   if (!stageActive || celebrationActive) return;
+  console.log(`[Stage] checkStageTarget — value: ${newBlock.value}, equation: [${equation}], target: ${stageTarget}`);
+
+  // If equation has been fully reduced to a single value matching the target
+  if (equation.length === 1 && equation[0] >= stageTarget) {
+    triggerCelebration(newBlock);
+    return;
+  }
+
+  // Also catch if block value equals/exceeds target even without equation tracking
   if (newBlock.value >= stageTarget) {
     triggerCelebration(newBlock);
   }
+}
+
+/**
+ * Called from fuseBlocks (blocks.js) when two blocks merge.
+ * Tries to find an adjacent pair in the equation matching (a, b) and merges them.
+ * Returns true if a match was found and the equation was updated.
+ */
+function onBlocksFused(valA, valB) {
+  if (!stageActive || equation.length <= 1) return false;
+
+  // Find adjacent pair matching (valA, valB) or (valB, valA)
+  for (let i = 0; i < equation.length - 1; i++) {
+    if ((equation[i] === valA && equation[i + 1] === valB) ||
+        (equation[i] === valB && equation[i + 1] === valA)) {
+      const sum = equation[i] + equation[i + 1];
+      highlightEquationPair(i);
+      // After highlight delay, merge the pair
+      setTimeout(() => {
+        equation.splice(i, 2, sum);
+        buildEquationDisplay();
+      }, 500);
+      return true;
+    }
+  }
+  return false;
+}
+
+// ======================== EQUATION DISPLAY ========================
+
+function buildEquationDisplay() {
+  destroyEquationDisplay();
+
+  equationContainer = new PIXI.Container();
+  equationTexts = [];
+
+  const fontSize = appWidth < 480 ? 26 : 34;
+  const opStyle = {
+    fontFamily: 'Segoe UI, Comic Sans MS, sans-serif',
+    fontSize: fontSize,
+    fontWeight: '900',
+    fill: '#ffffff',
+    dropShadow: true,
+    dropShadowDistance: 2,
+    dropShadowBlur: 5,
+    dropShadowAlpha: 0.6,
+    dropShadowColor: '#000000',
+  };
+  const plusStyle = {
+    fontFamily: 'Segoe UI, sans-serif',
+    fontSize: fontSize - 6,
+    fontWeight: '700',
+    fill: '#aaffaa',
+    dropShadow: true,
+    dropShadowDistance: 1,
+    dropShadowBlur: 3,
+    dropShadowAlpha: 0.4,
+    dropShadowColor: '#000000',
+  };
+  const eqStyle = {
+    fontFamily: 'Segoe UI, sans-serif',
+    fontSize: fontSize + 2,
+    fontWeight: '900',
+    fill: '#ffdd44',
+    dropShadow: true,
+    dropShadowDistance: 2,
+    dropShadowBlur: 5,
+    dropShadowAlpha: 0.6,
+    dropShadowColor: '#000000',
+  };
+
+  let xCursor = 0;
+  const gap = appWidth < 480 ? 8 : 14;
+  const operandColors = [0xe74c3c, 0xe67e22, 0xf1c40f, 0x2ecc71, 0x3498db, 0x9b59b6, 0xe84393, 0x00bcd4];
+
+  for (let i = 0; i < equation.length; i++) {
+    // Colored pill behind each operand
+    const numText = new PIXI.Text(equation[i].toString(), opStyle);
+    numText.anchor.set(0.5, 0.5);
+
+    const pillW = Math.max(numText.width + 18, fontSize + 8);
+    const pillH = fontSize + 10;
+    const pill = new PIXI.Graphics();
+    const pillColor = operandColors[i % operandColors.length];
+    pill.beginFill(pillColor, 0.7);
+    pill.drawRoundedRect(-pillW / 2, -pillH / 2, pillW, pillH, 10);
+    pill.endFill();
+    pill.beginFill(0xffffff, 0.15);
+    pill.drawRoundedRect(-pillW / 2 + 2, -pillH / 2 + 2, pillW - 4, pillH / 2 - 2, 8);
+    pill.endFill();
+
+    const operandGroup = new PIXI.Container();
+    operandGroup.addChild(pill);
+    operandGroup.addChild(numText);
+    operandGroup.x = xCursor + pillW / 2;
+    operandGroup._eqIndex = i;
+    operandGroup._eqType = 'operand';
+    operandGroup._pillGfx = pill;
+    operandGroup._textObj = numText;
+    equationContainer.addChild(operandGroup);
+    equationTexts.push(operandGroup);
+    xCursor += pillW + gap;
+
+    if (i < equation.length - 1) {
+      // Plus sign
+      const plus = new PIXI.Text('+', plusStyle);
+      plus.anchor.set(0, 0.5);
+      plus.x = xCursor;
+      plus._eqType = 'operator';
+      plus._eqIndex = i;
+      equationContainer.addChild(plus);
+      equationTexts.push(plus);
+      xCursor += plus.width + gap;
+    }
+  }
+
+  // Equals sign and target
+  const eqSign = new PIXI.Text('=', eqStyle);
+  eqSign.anchor.set(0, 0.5);
+  eqSign.x = xCursor;
+  eqSign._eqType = 'equals';
+  equationContainer.addChild(eqSign);
+  equationTexts.push(eqSign);
+  xCursor += eqSign.width + gap;
+
+  const targetText = new PIXI.Text(stageTarget.toString(), eqStyle);
+  targetText.anchor.set(0, 0.5);
+  targetText.x = xCursor;
+  targetText._eqType = 'target';
+  equationContainer.addChild(targetText);
+  equationTexts.push(targetText);
+  xCursor += targetText.width;
+
+  // Scale to fit screen if too wide
+  const maxWidth = appWidth * 0.85;
+  if (xCursor > maxWidth) {
+    equationContainer.scale.set(maxWidth / xCursor);
+  }
+
+  // Position — pushed down below header
+  const headerOffset = HEADER_HEIGHT > 0 ? 20 : 55;
+  equationContainer.x = appWidth / 2 - (Math.min(xCursor, maxWidth)) / 2;
+  equationContainer.y = headerOffset;
+
+  // Background pill
+  equationHighlightGfx = new PIXI.Graphics();
+  equationHighlightGfx.beginFill(0x000000, 0.45);
+  equationHighlightGfx.drawRoundedRect(
+    -16, -fontSize / 2 - 12,
+    xCursor + 32, fontSize + 24,
+    14
+  );
+  equationHighlightGfx.endFill();
+  equationContainer.addChildAt(equationHighlightGfx, 0);
+
+  effectLayer.addChild(equationContainer);
+}
+
+function destroyEquationDisplay() {
+  if (equationContainer) {
+    effectLayer.removeChild(equationContainer);
+    equationContainer.destroy({ children: true });
+    equationContainer = null;
+  }
+  equationTexts = [];
+  equationHighlightGfx = null;
+}
+
+function highlightEquationPair(pairIndex) {
+  const operandA = equationTexts.find(t => t._eqType === 'operand' && t._eqIndex === pairIndex);
+  const operandB = equationTexts.find(t => t._eqType === 'operand' && t._eqIndex === pairIndex + 1);
+  const plusSign = equationTexts.find(t => t._eqType === 'operator' && t._eqIndex === pairIndex);
+
+  if (!operandA || !operandB) return;
+
+  // Bright flash: turn pills white-green, scale up big
+  if (operandA._pillGfx) operandA._pillGfx.tint = 0x88ffaa;
+  if (operandB._pillGfx) operandB._pillGfx.tint = 0x88ffaa;
+  if (operandA._textObj) operandA._textObj.style.fill = '#00ff66';
+  if (operandB._textObj) operandB._textObj.style.fill = '#00ff66';
+  if (plusSign) plusSign.style.fill = '#ffffff';
+
+  // Animated pulse with glow ring
+  let t = 0;
+  const pulseAnim = () => {
+    t += 0.04;
+    const s = 1 + Math.sin(t * Math.PI * 2) * 0.3;
+    if (operandA) operandA.scale.set(s);
+    if (operandB) operandB.scale.set(s);
+    if (plusSign) plusSign.scale.set(s);
+    // Alpha flash
+    const flash = 0.5 + Math.sin(t * Math.PI * 4) * 0.5;
+    if (operandA._pillGfx) operandA._pillGfx.alpha = 0.5 + flash * 0.5;
+    if (operandB._pillGfx) operandB._pillGfx.alpha = 0.5 + flash * 0.5;
+    if (t >= 1) {
+      if (operandA) { operandA.scale.set(1); if (operandA._pillGfx) { operandA._pillGfx.tint = 0xffffff; operandA._pillGfx.alpha = 1; } if (operandA._textObj) operandA._textObj.style.fill = '#ffffff'; }
+      if (operandB) { operandB.scale.set(1); if (operandB._pillGfx) { operandB._pillGfx.tint = 0xffffff; operandB._pillGfx.alpha = 1; } if (operandB._textObj) operandB._textObj.style.fill = '#ffffff'; }
+      if (plusSign) { plusSign.scale.set(1); plusSign.style.fill = '#aaffaa'; }
+      app.ticker.remove(pulseAnim);
+    }
+  };
+  app.ticker.add(pulseAnim);
+
+  // Play a short "ding" for equation match
+  const now = audioCtx.currentTime;
+  const osc = audioCtx.createOscillator();
+  osc.type = 'sine';
+  osc.frequency.value = 880;
+  const g = audioCtx.createGain();
+  g.gain.setValueAtTime(0.12, now);
+  g.gain.exponentialRampToValueAtTime(0.001, now + 0.2);
+  osc.connect(g).connect(audioCtx.destination);
+  osc.start(now);
+  osc.stop(now + 0.2);
 }
 
 // ======================== CELEBRATION ========================
@@ -153,6 +400,7 @@ function triggerCelebration(winningBlock) {
   setTimeout(() => {
     clearConfetti();
     hideCelebrationBanner();
+    destroyEquationDisplay();
     loadStage(currentStage + 1);
   }, _stageCfg.nextStageDelayMs);
 }
@@ -485,5 +733,6 @@ window.restartStage = function() {
   celebrationActive = false;
   hideCelebrationBanner();
   clearConfetti();
+  destroyEquationDisplay();
   loadStage(currentStage);
 };

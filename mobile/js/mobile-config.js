@@ -38,21 +38,45 @@
   CONFIG.blocks.splitting.dragDeadZonePx = 12;
   CONFIG.blocks.splitting.thresholdDistancePx = isSmallScreen ? 80 : 100;
 
-  // ── Sky: Keep timings, adjust sun/moon for smaller screens ──
+  // ── Sky: Adjust sun/moon for narrower screens ──
+  // Reduce overshoot so sun/moon stay visible on narrow screens
   if (isSmallScreen) {
     CONFIG.sky.sun.bodyRadius = 30;
     CONFIG.sky.sun.rayOuterRadius = 55;
     CONFIG.sky.sun.rayInnerRadius = 38;
+    CONFIG.sky.sun.arcHorizontalOvershootPx = 20;
+    CONFIG.sky.sun.arcHeightFraction = 0.6;
+    CONFIG.sky.sun.arcBaselineOffsetFromBottom = 60;
     CONFIG.sky.moon.bodyRadius = 22;
+    CONFIG.sky.moon.arcHorizontalOvershootPx = 20;
+    CONFIG.sky.moon.arcHeightFraction = 0.6;
+    CONFIG.sky.moon.arcBaselineOffsetFromBottom = 60;
+  } else if (isMediumScreen) {
+    CONFIG.sky.sun.arcHorizontalOvershootPx = 35;
+    CONFIG.sky.sun.arcBaselineOffsetFromBottom = 55;
+    CONFIG.sky.moon.arcHorizontalOvershootPx = 35;
+    CONFIG.sky.moon.arcBaselineOffsetFromBottom = 55;
   }
 
-  // ── Environment: Adjust tree and grass for mobile ──
+  // ── Environment: Adjust tree, grass, and floor for mobile ──
+  // Increase grass/floor height to remain visible above FAB toolbar
+  CONFIG.environment.grass.baseHeightFromBottom = isSmallScreen ? 65 : 55;
+  CONFIG.environment.grass.innerTopOffset = isSmallScreen ? 58 : 48;
+  CONFIG.environment.grass.innerHeight = isSmallScreen ? 40 : 35;
+  CONFIG.environment.grass.bladeBaseOffsetFromBottom = isSmallScreen ? 38 : 28;
   if (isSmallScreen) {
     CONFIG.environment.tree.positionX = 10;
+    CONFIG.environment.tree.baseOffsetFromBottom = 45;
     CONFIG.environment.grass.bladeMinHeight = 14;
     CONFIG.environment.grass.bladeHeightRange = 16;
     CONFIG.environment.grass.bladeWidth = 5;
+  } else if (isMediumScreen) {
+    CONFIG.environment.tree.baseOffsetFromBottom = 40;
   }
+
+  // ── Zombies: Position above the raised floor, easier default ──
+  CONFIG.zombies.appearance.groundOffsetPx = isSmallScreen ? 60 : 50;
+  CONFIG.zombies.movement.aimDistancePx = isSmallScreen ? 120 : 150;
 
   // ── Wrecking: Slightly smaller on mobile ──
   if (isSmallScreen) {
@@ -76,6 +100,13 @@
       { value: 3, offsetX: 60 },
       { value: 4, offsetX: 150 },
     ];
+  }
+
+  // ── Stage: Adjust spawn spacing for narrow screens ──
+  if (isSmallScreen) {
+    CONFIG.stages.spawnSpacingPx = 70;
+  } else if (isMediumScreen) {
+    CONFIG.stages.spawnSpacingPx = 85;
   }
 
   // ── Zombies: Slightly easier on mobile by default ──

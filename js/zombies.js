@@ -159,7 +159,12 @@ function shootBullet(zombie) {
     vx,
     vy,
     life: _zShoot.bulletLifetimeFrames,
+    trail: [], // stores last N positions for trail rendering
+    trailGfx: new PIXI.Graphics(),
   });
+
+  // Add trail gfx behind bullet
+  effectLayer.addChild(zombieBullets[zombieBullets.length - 1].trailGfx);
 
   zombie.shotCooldown = _zShoot.shotCooldownFrames * getZombieDiffScale().shotCooldown;
 }
@@ -431,10 +436,28 @@ function updateZombies(delta, nightAmount, phase) {
     b.gfx.x = b.x;
     b.gfx.y = b.y;
 
+    // Trail: store position history (max 8 points)
+    b.trail.push({ x: b.x, y: b.y });
+    if (b.trail.length > 8) b.trail.shift();
+
+    // Draw trail
+    b.trailGfx.clear();
+    for (let t = 0; t < b.trail.length - 1; t++) {
+      const frac = t / b.trail.length;
+      const alpha = frac * 0.4;
+      const width = 1 + frac * 3;
+      b.trailGfx.lineStyle(width, _zShoot.bulletColor, alpha);
+      b.trailGfx.moveTo(b.trail[t].x, b.trail[t].y);
+      b.trailGfx.lineTo(b.trail[t + 1].x, b.trail[t + 1].y);
+    }
+    b.trailGfx.lineStyle(0);
+
     // Check collision with blocks
     if (checkBulletBlockCollision(b)) {
       effectLayer.removeChild(b.gfx);
+      effectLayer.removeChild(b.trailGfx);
       b.gfx.destroy();
+      b.trailGfx.destroy();
       zombieBullets.splice(i, 1);
       continue;
     }
@@ -442,7 +465,9 @@ function updateZombies(delta, nightAmount, phase) {
     // Off-screen or expired
     if (b.life <= 0 || b.x < -50 || b.x > appWidth + 50 || b.y < -50 || b.y > appHeight + 50) {
       effectLayer.removeChild(b.gfx);
+      effectLayer.removeChild(b.trailGfx);
       b.gfx.destroy();
+      b.trailGfx.destroy();
       zombieBullets.splice(i, 1);
     }
   }
@@ -480,6 +505,10 @@ function clearZombies() {
   for (const b of zombieBullets) {
     effectLayer.removeChild(b.gfx);
     b.gfx.destroy();
+    if (b.trailGfx) {
+      effectLayer.removeChild(b.trailGfx);
+      b.trailGfx.destroy();
+    }
   }
   zombieBullets.length = 0;
   for (const d of zombieDebrisList) {
