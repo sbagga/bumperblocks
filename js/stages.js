@@ -21,6 +21,7 @@ let equation = [];           // Current operands, e.g. [2, 3, 1]
 let equationContainer = null; // PIXI container for the equation display
 let equationTexts = [];       // Array of PIXI.Text objects for each operand/operator
 let equationHighlightGfx = null;
+let _lastStageTarget = 0;    // tracks cumulative target for random increments
 
 // ======================== STAGE GENERATION ========================
 
@@ -29,7 +30,14 @@ function getDifficulty(stage) {
 }
 
 function getStageTarget(stage) {
-  return _stageCfg.baseTarget + stage * _stageCfg.targetIncrement;
+  if (stage <= 1) {
+    _lastStageTarget = _stageCfg.baseTarget + _stageCfg.targetIncrement;
+    return _lastStageTarget;
+  }
+  // Random increment between 2 and 5
+  const increment = 2 + Math.floor(Math.random() * 4);
+  _lastStageTarget = _lastStageTarget + increment;
+  return _lastStageTarget;
 }
 
 function getStageBlocks(stage) {
@@ -75,6 +83,17 @@ function loadStage(stage) {
   currentStage = stage;
   stageTarget = getStageTarget(stage);
   celebrationActive = false;
+
+  // Auto-increase zombie difficulty every 2 stages
+  if (typeof setZombieDifficulty === 'function' && typeof zombieDifficulty !== 'undefined') {
+    const autoDiff = Math.min(10, Math.floor(stage / _stageCfg.difficultyInterval) + (DIFFICULTY.defaultLevel || 2));
+    if (autoDiff > zombieDifficulty) {
+      setZombieDifficulty(autoDiff);
+      const sel = document.getElementById('difficultySelect');
+      if (sel) sel.value = autoDiff;
+      console.log(`[Stage] Auto-increased zombie difficulty to ${autoDiff}`);
+    }
+  }
 
   console.log(`[Stage] Loading stage ${stage}, target: ${stageTarget}, gen: ${gen}`);
 

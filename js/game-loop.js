@@ -66,7 +66,7 @@ effectLayer.addChild(zombieHudContainer);
 
 const zombieCountdownText = new PIXI.Text('', {
   fontFamily: 'Segoe UI, sans-serif',
-  fontSize: 18,
+  fontSize: 16,
   fontWeight: '800',
   fill: '#ff4444',
   dropShadow: true,
@@ -77,7 +77,7 @@ const zombieCountdownText = new PIXI.Text('', {
 });
 zombieCountdownText.anchor.set(0.5, 0);
 zombieCountdownText.x = appWidth / 2;
-zombieCountdownText.y = 8;
+zombieCountdownText.y = HEADER_HEIGHT > 0 ? 62 : 95;
 zombieCountdownText.alpha = 0;
 zombieHudContainer.addChild(zombieCountdownText);
 
@@ -332,24 +332,43 @@ app.ticker.add((delta) => {
 
     const isZombiePhase = (phase === 'night' || phase === 'dusk');
 
-    // Countdown text
-    if (secsUntilZombies > 0 && secsUntilZombies <= 30) {
+    // Countdown text — always visible
+    if (secsUntilZombies > 0) {
       _zombieCountdownPulse += delta * 0.1;
-      const pulse = 1 + Math.sin(_zombieCountdownPulse * 3) * 0.08;
-      const urgency = 1 - (secsUntilZombies / 30);
-      const r = Math.round(255);
-      const g = Math.round(255 * (1 - urgency * 0.8));
-      const b = Math.round(100 * (1 - urgency));
-      zombieCountdownText.style.fill = `rgb(${r},${g},${b})`;
-      zombieCountdownText.style.fontSize = 18 + urgency * 8;
-      zombieCountdownText.text = `\uD83E\uDDDF Zombies in ${secsUntilZombies}s`;
-      zombieCountdownText.alpha = Math.min(1, urgency + 0.3);
-      zombieCountdownText.scale.set(pulse);
+      if (secsUntilZombies <= 30) {
+        // Urgent countdown
+        const pulse = 1 + Math.sin(_zombieCountdownPulse * 3) * 0.08;
+        const urgency = 1 - (secsUntilZombies / 30);
+        const r = 255;
+        const g = Math.round(255 * (1 - urgency * 0.8));
+        const b = Math.round(100 * (1 - urgency));
+        zombieCountdownText.style.fill = `rgb(${r},${g},${b})`;
+        zombieCountdownText.style.fontSize = 16 + urgency * 6;
+        zombieCountdownText.text = `\uD83E\uDDDF Zombies in ${secsUntilZombies}s`;
+        zombieCountdownText.alpha = Math.min(1, urgency + 0.4);
+        zombieCountdownText.scale.set(pulse);
+      } else {
+        // Calm countdown — always visible but subdued
+        const mins = Math.floor(secsUntilZombies / 60);
+        const secs = secsUntilZombies % 60;
+        const timeStr = mins > 0 ? `${mins}m ${secs}s` : `${secs}s`;
+        zombieCountdownText.text = `\uD83C\uDF19 Night in ${timeStr}`;
+        zombieCountdownText.style.fill = '#8899bb';
+        zombieCountdownText.style.fontSize = 14;
+        zombieCountdownText.alpha = 0.55;
+        zombieCountdownText.scale.set(1);
+      }
     } else if (isZombiePhase && zombies.length > 0) {
       zombieCountdownText.text = `\uD83E\uDDDF ${zombies.length} Zombie${zombies.length > 1 ? 's' : ''} active!`;
       zombieCountdownText.style.fill = '#ff2222';
-      zombieCountdownText.style.fontSize = 20;
-      zombieCountdownText.alpha = 0.6 + Math.sin(now * 0.005) * 0.2;
+      zombieCountdownText.style.fontSize = 16;
+      zombieCountdownText.alpha = 0.7 + Math.sin(now * 0.005) * 0.15;
+      zombieCountdownText.scale.set(1);
+    } else if (isZombiePhase) {
+      zombieCountdownText.text = '\uD83C\uDF19 Nighttime...';
+      zombieCountdownText.style.fill = '#6677aa';
+      zombieCountdownText.style.fontSize = 14;
+      zombieCountdownText.alpha = 0.5;
       zombieCountdownText.scale.set(1);
     } else {
       zombieCountdownText.alpha *= 0.95;
