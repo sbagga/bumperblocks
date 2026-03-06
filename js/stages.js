@@ -253,7 +253,8 @@ function showCelebrationBanner() {
   celebrationContainer.addChild(backdrop);
 
   // "Stage Complete!" text
-  const completeText = new PIXI.Text(`Stage ${currentStage} Complete!`, {
+  const _stageCompleteStr = (typeof L === 'function') ? L('stageComplete', {n: currentStage}) : `Stage ${currentStage} Complete!`;
+  const completeText = new PIXI.Text(_stageCompleteStr, {
     fontFamily: 'Segoe UI, Comic Sans MS, sans-serif',
     fontSize: 28,
     fontWeight: '900',
@@ -269,7 +270,8 @@ function showCelebrationBanner() {
   celebrationContainer.addChild(completeText);
 
   // "Target: X" subtext
-  const subText = new PIXI.Text(`Target ${stageTarget} reached! 🎉`, {
+  const _targetReachedStr = (typeof L === 'function') ? L('targetReached', {n: stageTarget}) : `Target ${stageTarget} reached! 🎉`;
+  const subText = new PIXI.Text(_targetReachedStr, {
     fontFamily: 'Segoe UI, sans-serif',
     fontSize: 16,
     fill: '#aaffaa',
@@ -459,8 +461,10 @@ function updateStageUI() {
   // Update stage/target display elements (if they exist in the DOM)
   const stageEl = document.getElementById('stageDisplay');
   const targetEl = document.getElementById('targetDisplay');
-  if (stageEl) stageEl.textContent = `Stage ${currentStage}`;
-  if (targetEl) targetEl.textContent = `Target: ${stageTarget}`;
+  const _stageStr = (typeof L === 'function') ? L('stage', {n: currentStage}) : `Stage ${currentStage}`;
+  const _targetStr = (typeof L === 'function') ? L('target', {n: stageTarget}) : `Target: ${stageTarget}`;
+  if (stageEl) stageEl.textContent = _stageStr;
+  if (targetEl) targetEl.textContent = _targetStr;
 }
 
 // ======================== WINNING BLOCK ANIMATION (called from game loop) ========================

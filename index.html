@@ -235,6 +235,79 @@
     transition: transform 0.15s;
   }
   #wreckBtn:hover { transform: scale(1.08); }
+
+  /* ── Onboarding Overlay ── */
+  .onboarding-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 700;
+    background: rgba(10,12,30,0.85);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 24px;
+    color: #fff;
+    padding: 30px;
+    text-align: center;
+    opacity: 1;
+    transition: opacity 0.5s;
+  }
+  .onboarding-overlay.hidden {
+    opacity: 0;
+    pointer-events: none;
+  }
+  .onboarding-overlay h2 {
+    font-size: 32px;
+    background: linear-gradient(90deg, #ff4444, #ff9922, #ffcc00, #44dd66, #44aaff, #bb66ee);
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+    font-weight: 900;
+  }
+  .onboarding-hints {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    font-size: 18px;
+    color: rgba(255,255,255,0.85);
+    max-width: 400px;
+  }
+  .onboarding-hints .hint-row {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    text-align: left;
+  }
+  .onboarding-hints .hint-icon {
+    font-size: 30px;
+    width: 44px;
+    text-align: center;
+    flex-shrink: 0;
+  }
+  .onboarding-start {
+    margin-top: 20px;
+    padding: 14px 48px;
+    border-radius: 14px;
+    border: none;
+    background: linear-gradient(135deg, #44dd66, #27ae60);
+    color: #fff;
+    font-size: 20px;
+    font-weight: 800;
+    cursor: pointer;
+    letter-spacing: 1px;
+    box-shadow: 0 4px 16px rgba(46,204,113,0.4);
+    transition: transform 0.15s;
+  }
+  .onboarding-start:hover { transform: scale(1.05); }
+  @media (max-width: 600px) {
+    .onboarding-overlay h2 { font-size: 24px; }
+    .onboarding-hints { font-size: 15px; gap: 12px; }
+    .onboarding-hints .hint-icon { font-size: 24px; width: 36px; }
+    .onboarding-start { font-size: 17px; padding: 12px 36px; }
+  }
 </style>
 </head>
 <body>
@@ -243,44 +316,76 @@
   <div class="header-row-top">
     <div class="logo-group">
       <img src="img/logo.svg" alt="Bumper Blocks">
-      <h1>Bumper Blocks</h1>
+      <h1 data-l10n="appName">Bumper Blocks</h1>
     </div>
     <div class="instructions">
       <span id="stageDisplay" style="font-weight:800;color:#88bbff">Stage 1</span>
       <span id="targetDisplay" style="font-weight:800;color:#ff8888">Target: 6</span>
-      <span class="hint-text">✋ Drag to move</span>
-      <span class="hint-text">🔗 Drop near to fuse</span>
-      <span class="hint-text">👆👆 Double-click to split</span>
+      <span class="hint-text" data-l10n="hintDrag">✋ Drag to move</span>
+      <span class="hint-text" data-l10n="hintFuse">🔗 Drop near to fuse</span>
+      <span class="hint-text" data-l10n="hintSplit">👆👆 Double-click to split</span>
     </div>
   </div>
+
+<!-- Onboarding Overlay -->
+<div class="onboarding-overlay" id="onboarding">
+  <h2 data-l10n="appName">Bumper Blocks</h2>
+  <div class="onboarding-hints">
+    <div class="hint-row"><span class="hint-icon">🎯</span><span data-l10n="onboardGoal">Fuse blocks to reach the <b>target number</b></span></div>
+    <div class="hint-row"><span class="hint-icon">✋</span><span data-l10n="onboardDrag">Drag blocks near each other to fuse them</span></div>
+    <div class="hint-row"><span class="hint-icon">👆👆</span><span data-l10n="onboardSplit">Double-click a block to split it in half</span></div>
+    <div class="hint-row"><span class="hint-icon">🚀</span><span data-l10n="onboardStages">Each stage, the target gets bigger!</span></div>
+  </div>
+  <button class="onboarding-start" id="startBtn" data-l10n="letsPlay">LET'S PLAY!</button>
+</div>
+
+<script>
+(function() {
+  var KEY = 'bumperblocks_onboarded';
+  var overlay = document.getElementById('onboarding');
+  var btn = document.getElementById('startBtn');
+  if (localStorage.getItem(KEY)) {
+    overlay.classList.add('hidden');
+    setTimeout(function() { overlay.remove(); }, 600);
+  } else {
+    btn.addEventListener('click', function() {
+      overlay.classList.add('hidden');
+      localStorage.setItem(KEY, '1');
+      if (typeof audioCtx !== 'undefined' && audioCtx.state === 'suspended') audioCtx.resume();
+      setTimeout(function() { overlay.remove(); }, 600);
+    });
+  }
+})();
+</script>
   <div class="header-controls">
-    <button class="btn-wreck-mode" id="wreckModeBtn" onclick="toggleWreckMode()">🏗️ Wrecking Ball</button>
-    <button class="btn-wreck-mode" id="nightModeBtn" onclick="toggleNightMode()">🌙 Night Mode</button>
+    <button class="btn-wreck-mode" id="wreckModeBtn" onclick="toggleWreckMode()" data-l10n="wreckingBall">🏗️ Wrecking Ball</button>
+    <button class="btn-wreck-mode" id="nightModeBtn" onclick="toggleNightMode()" data-l10n="nightMode">🌙 Night Mode</button>
     <div class="difficulty-wrapper">
-      <label for="difficultySelect">🧟 Difficulty:</label>
+      <label for="difficultySelect" data-l10n="difficultyLabel">🧟 Difficulty:</label>
       <select id="difficultySelect" onchange="setZombieDifficulty(Number(this.value))">
-        <option value="0">0 – Off</option>
-        <option value="1">1 – Peaceful</option>
-        <option value="2">2 – Very Easy</option>
-        <option value="3" selected>3 – Easy</option>
-        <option value="4">4 – Normal-</option>
-        <option value="5">5 – Normal</option>
-        <option value="6">6 – Hard-</option>
-        <option value="7">7 – Hard</option>
-        <option value="8">8 – Very Hard</option>
-        <option value="9">9 – Extreme</option>
-        <option value="10">10 – Nightmare</option>
+        <option value="0" data-l10n="diff0">Off</option>
+        <option value="1" data-l10n="diff1">Peaceful</option>
+        <option value="2" data-l10n="diff2">Very Easy</option>
+        <option value="3" selected data-l10n="diff3">Easy</option>
+        <option value="4" data-l10n="diff4">Normal-</option>
+        <option value="5" data-l10n="diff5">Normal</option>
+        <option value="6" data-l10n="diff6">Hard-</option>
+        <option value="7" data-l10n="diff7">Hard</option>
+        <option value="8" data-l10n="diff8">Very Hard</option>
+        <option value="9" data-l10n="diff9">Extreme</option>
+        <option value="10" data-l10n="diff10">Nightmare</option>
       </select>
     </div>
-    <button class="btn-clear" onclick="restartStage()">🔄 Restart</button>
+    <button class="btn-clear" onclick="restartStage()" data-l10n="restart">🔄 Restart</button>
   </div>
 </header>
 
 <div id="gameContainer">
-  <button id="wreckBtn" onclick="releaseWreckingBall()">💥 WRECK!</button>
+  <button id="wreckBtn" onclick="releaseWreckingBall()" data-l10n="wreck">💥 WRECK!</button>
 </div>
 
 <!-- Game scripts — load order matters (see ARCHITECTURE.md) -->
+<script src="js/i18n.js"></script>
 <script src="js/config.js"></script>
 <script src="js/difficulty.config.js"></script>
 <script src="js/constants.js"></script>

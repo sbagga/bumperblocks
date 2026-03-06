@@ -29,7 +29,7 @@
   }
 
   // ======================== DIFFICULTY PICKER ========================
-  const DIFF_LABELS = [
+  const DIFF_LABELS = (typeof L === 'function') ? L.difficultyLabels() : [
     '0 — Off',
     '1 — Peaceful',
     '2 — Very Easy',
@@ -127,7 +127,9 @@
 
   // ======================== HUD HINTS ========================
   const hudHint = document.getElementById('hudHint');
-  const hints = ['Drag to fuse', 'Double-tap to split', 'Reach the target!', 'Drop near to merge'];
+  const hints = (typeof L === 'function')
+    ? [L('mobileHint1'), L('mobileHint2'), L('mobileHint3'), L('mobileHint4')]
+    : ['Drag to fuse', 'Double-tap to split', 'Reach the target!', 'Drop near to merge'];
   let hintIndex = 0;
 
   setInterval(() => {

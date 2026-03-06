@@ -320,18 +320,18 @@
 
 <!-- Game Canvas -->
 <div id="gameContainer">
-  <button id="wreckBtn" onclick="releaseWreckingBall()">💥 WRECK!</button>
+  <button id="wreckBtn" onclick="releaseWreckingBall()" data-l10n="wreck">💥 WRECK!</button>
 </div>
 
 <!-- Mini HUD (top) -->
 <div class="mobile-hud" id="mobileHud">
   <div class="logo-group">
     <img src="../img/logo.svg" alt="BB">
-    <h1>Bumper Blocks</h1>
+    <h1 data-l10n="appName">Bumper Blocks</h1>
   </div>
   <span id="stageDisplay" style="font-weight:800;color:#88bbff">Stage 1</span>
   <span id="targetDisplay" style="font-weight:800;color:#ff8888">Target: 6</span>
-  <span class="hint" id="hudHint">Drag to fuse</span>
+  <span class="hint" id="hudHint" data-l10n="mobileHint1">Drag to fuse</span>
 </div>
 
 <!-- Floating Action Bar (bottom) -->
@@ -345,7 +345,7 @@
 <!-- Difficulty Picker Modal -->
 <div class="difficulty-modal" id="difficultyModal">
   <div class="difficulty-panel">
-    <h2>🧟 Zombie Difficulty</h2>
+    <h2 data-l10n="difficultyTitle">🧟 Zombie Difficulty</h2>
     <div id="difficultyOptions"></div>
   </div>
 </div>
@@ -367,17 +367,18 @@
 
 <!-- Onboarding Overlay -->
 <div class="onboarding-overlay" id="onboarding">
-  <h2>Bumper Blocks</h2>
+  <h2 data-l10n="appName">Bumper Blocks</h2>
   <div class="onboarding-hints">
-    <div class="hint-row"><span class="hint-icon">✋</span><span>Drag blocks to move them</span></div>
-    <div class="hint-row"><span class="hint-icon">🔗</span><span>Drop near another to fuse</span></div>
-    <div class="hint-row"><span class="hint-icon">👆👆</span><span>Double-tap a block to split it</span></div>
-    <div class="hint-row"><span class="hint-icon">🎯</span><span>Fuse blocks to reach the target!</span></div>
+    <div class="hint-row"><span class="hint-icon">✋</span><span data-l10n="onboardDragMobile">Drag blocks to move them</span></div>
+    <div class="hint-row"><span class="hint-icon">🔗</span><span data-l10n="onboardFuseMobile">Drop near another to fuse</span></div>
+    <div class="hint-row"><span class="hint-icon">👆👆</span><span data-l10n="onboardSplitMobile">Double-tap a block to split it</span></div>
+    <div class="hint-row"><span class="hint-icon">🎯</span><span data-l10n="onboardTargetMobile">Fuse blocks to reach the target!</span></div>
   </div>
-  <button class="onboarding-start" id="startBtn">LET'S PLAY!</button>
+  <button class="onboarding-start" id="startBtn" data-l10n="letsPlay">LET'S PLAY!</button>
 </div>
 
 <!-- Game scripts — reused from parent directory (load order preserved) -->
+<script src="../js/i18n.js"></script>
 <script src="../js/config.js"></script>
 <script src="../js/difficulty.config.js"></script>
 <script src="js/mobile-config.js"></script>
