@@ -34,8 +34,8 @@ function getStageTarget(stage) {
     _lastStageTarget = _stageCfg.baseTarget + _stageCfg.targetIncrement;
     return _lastStageTarget;
   }
-  // Random increment between 2 and 5
-  const increment = 2 + Math.floor(Math.random() * 4);
+  // Random increment between 0 and 3
+  const increment = Math.floor(Math.random() * 4);
   _lastStageTarget = _lastStageTarget + increment;
   return _lastStageTarget;
 }
@@ -177,6 +177,97 @@ function checkStageTarget(newBlock) {
   if (newBlock.value >= stageTarget) {
     triggerCelebration(newBlock);
   }
+}
+
+/**
+ * Check if two values can be fused according to the current equation.
+ * Returns true if (valA, valB) appears as an adjacent pair.
+ */
+function canBlocksFuse(valA, valB) {
+  if (!stageActive || equation.length <= 1) return true;
+  for (let i = 0; i < equation.length - 1; i++) {
+    if ((equation[i] === valA && equation[i + 1] === valB) ||
+        (equation[i] === valB && equation[i + 1] === valA)) {
+      return true;
+    }
+  }
+  return false;
+}
+
+/**
+ * Show a floating warning when an invalid fuse is attempted.
+ */
+function showInvalidFuseWarning(x, y, valA, valB) {
+  // Shake the equation display
+  if (equationContainer) {
+    let shakeT = 0;
+    const origX = equationContainer.x;
+    const shakeAnim = () => {
+      shakeT += 0.12;
+      equationContainer.x = origX + Math.sin(shakeT * Math.PI * 6) * 6 * (1 - shakeT);
+      if (shakeT >= 1) {
+        equationContainer.x = origX;
+        app.ticker.remove(shakeAnim);
+      }
+    };
+    app.ticker.add(shakeAnim);
+  }
+
+  // Floating warning text
+  const warnText = new PIXI.Text(`${valA} + ${valB} not in equation!`, {
+    fontFamily: 'Segoe UI, sans-serif',
+    fontSize: 20,
+    fontWeight: '800',
+    fill: '#ff4444',
+    dropShadow: true,
+    dropShadowDistance: 1,
+    dropShadowBlur: 4,
+    dropShadowAlpha: 0.7,
+    dropShadowColor: '#000000',
+  });
+  warnText.anchor.set(0.5, 0.5);
+  warnText.x = x;
+  warnText.y = y;
+  effectLayer.addChild(warnText);
+
+  // Red X flash
+  const xGfx = new PIXI.Graphics();
+  xGfx.lineStyle(4, 0xff2222, 0.9);
+  xGfx.moveTo(-14, -14); xGfx.lineTo(14, 14);
+  xGfx.moveTo(14, -14); xGfx.lineTo(-14, 14);
+  xGfx.x = x;
+  xGfx.y = y - 30;
+  effectLayer.addChild(xGfx);
+
+  // Error buzz sound
+  const now = audioCtx.currentTime;
+  const osc = audioCtx.createOscillator();
+  osc.type = 'square';
+  osc.frequency.setValueAtTime(150, now);
+  osc.frequency.linearRampToValueAtTime(80, now + 0.15);
+  const g = audioCtx.createGain();
+  g.gain.setValueAtTime(0.08, now);
+  g.gain.exponentialRampToValueAtTime(0.001, now + 0.2);
+  osc.connect(g).connect(audioCtx.destination);
+  osc.start(now); osc.stop(now + 0.2);
+
+  // Animate: float up and fade
+  let life = 0;
+  const anim = () => {
+    life++;
+    warnText.y -= 0.8;
+    xGfx.y -= 0.8;
+    const alpha = 1 - life / 60;
+    warnText.alpha = alpha;
+    xGfx.alpha = alpha;
+    xGfx.scale.set(1 + life * 0.01);
+    if (life >= 60) {
+      effectLayer.removeChild(warnText); warnText.destroy();
+      effectLayer.removeChild(xGfx); xGfx.destroy();
+      app.ticker.remove(anim);
+    }
+  };
+  app.ticker.add(anim);
 }
 
 /**

@@ -513,6 +513,19 @@ function removeBlock(id, animate = true) {
 function fuseBlocks(blockA, blockB) {
   const valA = blockA.value;
   const valB = blockB.value;
+
+  // Check if this fuse is valid per the equation
+  if (typeof canBlocksFuse === 'function' && !canBlocksFuse(valA, valB)) {
+    const midX = (getBlockCenter(blockA).x + getBlockCenter(blockB).x) / 2;
+    const midY = (getBlockCenter(blockA).y + getBlockCenter(blockB).y) / 2;
+    if (typeof showInvalidFuseWarning === 'function') {
+      showInvalidFuseWarning(midX, midY, valA, valB);
+    }
+    setBlockExpression(blockA, 'sad');
+    setTimeout(() => { if (blockA && blockA.faceGfx) setBlockExpression(blockA, 'happy'); }, 600);
+    return;
+  }
+
   const newValue = valA + valB;
   const centerA = getBlockCenter(blockA);
   const centerB = getBlockCenter(blockB);
