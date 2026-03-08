@@ -14,6 +14,19 @@
 			"url": "https://mcp.stripe.com",
 			"gallery": "https://api.mcp.github.com",
 			"version": "0.2.4"
+		},
+		"com.microsoft/azure": {
+			"type": "stdio",
+			"command": "dnx",
+			"args": [
+				"Azure.Mcp@2.0.0-beta.25",
+				"--yes",
+				"--",
+				"server",
+				"start"
+			],
+			"gallery": "https://api.mcp.github.com",
+			"version": "2.0.0-beta.25"
 		}
 	},
 	"inputs": []
