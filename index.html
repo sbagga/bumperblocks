@@ -352,6 +352,7 @@
       overlay.classList.add('hidden');
       localStorage.setItem(KEY, '1');
       if (typeof audioCtx !== 'undefined' && audioCtx.state === 'suspended') audioCtx.resume();
+      if (typeof trackEvent === 'function') trackEvent('game_onboard_complete');
       setTimeout(function() { overlay.remove(); }, 600);
     });
   }
@@ -386,6 +387,7 @@
 
 <!-- Game scripts — load order matters (see ARCHITECTURE.md) -->
 <script src="js/i18n.js"></script>
+<script src="js/analytics.js"></script>
 <script src="js/config.js"></script>
 <script src="js/difficulty.config.js"></script>
 <script src="js/constants.js"></script>

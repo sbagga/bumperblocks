@@ -67,6 +67,10 @@ function createBlock(value, x, y, animate = true) {
 
   blocks.push(block);
   if (animate) playSpawnPop();
+
+  // Analytics: first block created
+  if (typeof trackEvent === 'function') trackEvent('game_first_block');
+
   return block;
 }
 
@@ -541,18 +545,12 @@ function fuseBlocks(blockA, blockB) {
 
   showFuseFlash(midX, midY);
 
-  // Update equation display
+  // Analytics: first fuse
+  if (typeof trackEvent === 'function') trackEvent('game_first_fuse');
+
+  // Update equation display (also handles win check internally)
   if (typeof onBlocksFused === 'function') {
     onBlocksFused(valA, valB);
-  }
-
-  // Check if stage target is reached
-  try {
-    if (typeof checkStageTarget === 'function') {
-      checkStageTarget(newBlock);
-    }
-  } catch (e) {
-    console.error('[Blocks] Error in checkStageTarget:', e);
   }
 }
 

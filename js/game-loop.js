@@ -314,6 +314,11 @@ app.ticker.add((delta) => {
   // ---- ZOMBIES (night only) ----
   updateZombies(delta, nightAmount, phase);
 
+  // ---- Night survival tracking ----
+  if (phase === 'dawn' && blocks.length > 0 && typeof trackEvent === 'function') {
+    trackEvent('game_night_survived');
+  }
+
   // ---- ZOMBIE COUNTDOWN & SCARY EFFECTS ----
   if (zombieDifficulty > 0 && !forceNightMode) {
     const _duskStart = CONFIG.sky.dayNightCycle.duskStartFraction;

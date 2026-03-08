@@ -9,6 +9,15 @@
 <meta name="theme-color" content="#333333">
 <title>Bumper Blocks — Mobile</title>
 
+<!-- Google tag (gtag.js) -->
+<script async src="https://www.googletagmanager.com/gtag/js?id=AW-17975743100"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+  gtag('config', 'AW-17975743100');
+</script>
+
 <!-- PixiJS v7 (WebGL) -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pixi.js/7.3.3/pixi.min.js"></script>
 
@@ -379,6 +388,7 @@
 
 <!-- Game scripts — reused from parent directory (load order preserved) -->
 <script src="../js/i18n.js"></script>
+<script src="../js/analytics.js"></script>
 <script src="../js/config.js"></script>
 <script src="../js/difficulty.config.js"></script>
 <script src="js/mobile-config.js"></script>

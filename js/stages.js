@@ -41,7 +41,7 @@ function getStageTarget(stage) {
 }
 
 function getStageBlocks(stage) {
-  const target = getStageTarget(stage);
+  const target = stageTarget; // use the already-computed stage target, not recalculate
   const difficulty = getDifficulty(stage);
   const numBlocks = _stageCfg.baseBlockCount + difficulty;
 
@@ -167,14 +167,8 @@ function checkStageTarget(newBlock) {
   if (!stageActive || celebrationActive) return;
   console.log(`[Stage] checkStageTarget — value: ${newBlock.value}, equation: [${equation}], target: ${stageTarget}`);
 
-  // If equation has been fully reduced to a single value matching the target
-  if (equation.length === 1 && equation[0] >= stageTarget) {
-    triggerCelebration(newBlock);
-    return;
-  }
-
-  // Also catch if block value equals/exceeds target even without equation tracking
-  if (newBlock.value >= stageTarget) {
+  // Only succeed when equation is fully reduced to exactly the target
+  if (equation.length === 1 && equation[0] === stageTarget) {
     triggerCelebration(newBlock);
   }
 }
@@ -284,11 +278,27 @@ function onBlocksFused(valA, valB) {
         (equation[i] === valB && equation[i + 1] === valA)) {
       const sum = equation[i] + equation[i + 1];
       highlightEquationPair(i);
-      // After highlight delay, merge the pair
+
+      // Merge equation IMMEDIATELY so win check works
+      equation.splice(i, 2, sum);
+
+      // Delay only the visual rebuild (after highlight animation)
       setTimeout(() => {
-        equation.splice(i, 2, sum);
         buildEquationDisplay();
       }, 500);
+
+      // Check win condition NOW (equation is already merged)
+      if (equation.length === 1 && equation[0] === stageTarget) {
+        // Small delay so player sees the final merge animation
+        setTimeout(() => {
+          if (!celebrationActive) {
+            // Find the block with the winning value
+            const winner = blocks.find(b => b.value === sum && b._deleteAnim < 0);
+            if (winner) triggerCelebration(winner);
+          }
+        }, 600);
+      }
+
       return true;
     }
   }
@@ -489,6 +499,14 @@ function triggerCelebration(winningBlock) {
   console.log(`[Stage] CELEBRATION! Stage ${currentStage} complete, value ${winningBlock.value} >= target ${stageTarget}`);
   celebrationActive = true;
   stageActive = false;
+
+  // Analytics: stage completion milestones
+  if (typeof trackStageEvent === 'function') {
+    trackStageEvent('game_stage_complete', currentStage, { target: stageTarget });
+    if (currentStage === 3) trackEvent('game_stage_3');
+    if (currentStage === 5) trackEvent('game_stage_5');
+    if (currentStage === 10) trackEvent('game_stage_10');
+  }
 
   // Winning block animation
   setBlockExpression(winningBlock, 'happy');

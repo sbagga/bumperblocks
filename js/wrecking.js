@@ -19,6 +19,8 @@ window.toggleWreckMode = function() {
   wreckMode = !wreckMode;
   document.getElementById('wreckModeBtn').classList.toggle('active', wreckMode);
   if (!wreckMode) clearWreckingBall();
+  // Analytics: wreck mode used
+  if (wreckMode && typeof trackEvent === 'function') trackEvent('game_wreck_mode');
 };
 
 function clearWreckingBall() {
